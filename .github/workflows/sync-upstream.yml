@@ -1,0 +1,47 @@
+name: Sync Upstream
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # 计划任务：每天 UTC 00:00 (北京时间 08:00) 自动运行
+    - cron: "0 0 * * *"
+  workflow_dispatch: 
+
+jobs:
+  sync_with_upstream:
+    name: Sync with Upstream
+    runs-on: ubuntu-latest
+    if: ${{ github.event.repository.fork }} # 只有当这是一个 Fork 仓库时才运行
+
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          # 上游仓库地址 (官方原版)
+          upstream_sync_repo: jeric-x/SyncClipboard
+          # 上游分支名 (通常是 master)
+          upstream_sync_branch: master
+          # 你仓库中需要更新的分支名
+          target_sync_branch: master
+          # GitHub 自动生成的 Token，无需手动设置 Secrets
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # 设置为 true 可用于测试配置，不会产生实际推送
+          test_mode: false
+
+      - name: Check for new commits
+        if: steps.sync.outputs.has_new_commits == 'true'
+        run: echo "检测到新提交，已成功同步。"
+
+      - name: Sync check
+        if: failure()
+        run: |
+          echo "::error::同步失败！"
+          echo "可能原因：上游仓库更改了 Workflow 文件，或者产生了合并冲突。"
+          echo "请尝试手动去 GitHub 网页端点击 'Fetch upstream' 按钮。"
+          exit 1
