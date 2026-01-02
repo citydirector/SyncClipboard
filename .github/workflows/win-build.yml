@@ -2,18 +2,21 @@ name: win-build
 
 on:
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
-        cpu: [x64, arm64]
-        dotnet_runtime: [self-contained, no-self-contained]
+        #cpu: [x64, arm64]
+        cpu: [x64]
+        #dotnet_runtime: [self-contained, no-self-contained]
+        dotnet_runtime: [no-self-contained]
         win_app_sdk: ['win_app_sdk', 'no_win_app_sdk']
         include:
-          - dotnet_runtime: 'self-contained'
-            if_self: 'true'
-            dotnet_runtime_filename: ''
+          # - dotnet_runtime: 'self-contained'
+          #   if_self: 'true'
+          #   dotnet_runtime_filename: ''
           - dotnet_runtime: 'no-self-contained'
             dotnet_runtime_filename: '_no-dotnet-runtime'
             if_self: 'false'

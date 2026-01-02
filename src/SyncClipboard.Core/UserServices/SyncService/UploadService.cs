@@ -344,8 +344,20 @@ public class UploadService : ClipboardHander
         var token = StopPreviousAndGetNewToken();
         try
         {
-            var meta = await _clipboardFactory.GetMetaInfomation(token);
-            var profile = await _clipboardFactory.CreateProfileFromMeta(meta, contentControl, token);
+            // 鲁棒性设计：读取必须加锁，防止与下载服务或系统剪贴板冲突
+            await LocalClipboard.Semaphore.WaitAsync(token);
+            ClipboardMetaInfomation meta;
+            Profile profile;
+            try
+            {
+                meta = await _clipboardFactory.GetMetaInfomation(token);
+                profile = await _clipboardFactory.CreateProfileFromMeta(meta, contentControl, token);
+            }
+            finally
+            {
+                LocalClipboard.Semaphore.Release();
+            }
+
             await UploadProfileClipboard(meta, profile, contentControl, token);
             if (NotifyOnManualUpload)
             {

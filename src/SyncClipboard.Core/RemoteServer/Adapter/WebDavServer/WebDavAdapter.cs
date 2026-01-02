@@ -93,7 +93,19 @@ public sealed class WebDavAdapter : IServerAdapter<WebDavConfig>, IStorageBasedS
             Directory.CreateDirectory(directory);
         }
 
-        await _webDav.GetFile(remotePath, localPath, progress, cancellationToken);
+        try
+        {
+            await _webDav.GetFile(remotePath, localPath, progress, cancellationToken);
+        }
+        catch
+        {
+            // 鲁棒性设计：如果下载失败，必须清理可能创建的空文件
+            if (File.Exists(localPath))
+            {
+                try { File.Delete(localPath); } catch { }
+            }
+            throw; // 重新抛出异常，通知上层服务
+        }
         _logger.Write($"[WEBDAV] Downloaded {fileName} to {localPath}");
     }
 
