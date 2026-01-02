@@ -15,6 +15,7 @@ using SyncClipboard.Core.Utilities.History;
 using SyncClipboard.Core.Utilities.Keyboard;
 using SyncClipboard.Core.Utilities.Runner;
 using SyncClipboard.Core.ViewModels;
+using SyncClipboard.Shared.Profiles;
 
 namespace SyncClipboard.Core.UserServices;
 
@@ -458,14 +459,14 @@ public class DownloadService : Service
             }
         }
         // 鲁棒性设计：拒绝空文件
-        if ((remoteProfile.Type == ProfileType.File || remoteProfile.Type == ProfileType.Image)
-            && (string.IsNullOrEmpty(remoteProfile.FilePath) || !File.Exists(remoteProfile.FilePath) || new FileInfo(remoteProfile.FilePath).Length == 0))
+        if (remoteProfile is FileProfile fileProfile
+            && (string.IsNullOrEmpty(fileProfile.FullPath) || !File.Exists(fileProfile.FullPath) || new FileInfo(fileProfile.FullPath).Length == 0))
         {
             _logger.Write(SERVICE_NAME, "❌ 拦截：试图写入无效文件 (0字节或丢失)");
             return;
         }
         // 鲁棒性设计：拒绝空文本
-        if (remoteProfile.Type == ProfileType.Text && string.IsNullOrEmpty(remoteProfile.Text))
+        if (remoteProfile.Type == ProfileType.Text && string.IsNullOrEmpty(remoteProfile.DisplayText))
         {
             _logger.Write(SERVICE_NAME, "❌ 拦截：试图写入空文本");
             return;
