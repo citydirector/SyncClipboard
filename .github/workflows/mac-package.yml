@@ -34,7 +34,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: | 
-            9.0.x
+            10.0.x
 
       - name: Install dotnet workload and dependencies
         working-directory: ./src/SyncClipboard.Desktop.MacOS
@@ -57,7 +57,7 @@ jobs:
 
       - name: mv app
         run: | 
-          mv src/SyncClipboard.Desktop.MacOS/bin/Release/net9.0-macos/osx-${{ matrix.cpu }}/SyncClipboard.Desktop.MacOS.app build/macos/SyncClipboard.app
+          mv src/SyncClipboard.Desktop.MacOS/bin/Release/net10.0-macos/osx-${{ matrix.cpu }}/SyncClipboard.Desktop.MacOS.app build/macos/SyncClipboard.app
           chmod +x build/macos/SyncClipboard.app/Contents/MacOS/SyncClipboard.Desktop.MacOS
 
       - name: set update info
