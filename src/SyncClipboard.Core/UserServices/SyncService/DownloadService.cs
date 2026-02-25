@@ -472,17 +472,17 @@ public class DownloadService : Service
                     await _historyManager.AddLocalProfile(remoteProfile, token: cancelToken);
             }
         }
-        // 鲁棒性设计：拒绝空文件
+        // 拒绝空文件
         if (remoteProfile is FileProfile fileProfile
             && (string.IsNullOrEmpty(fileProfile.FullPath) || !File.Exists(fileProfile.FullPath) || new FileInfo(fileProfile.FullPath).Length == 0))
         {
-            _logger.Write(SERVICE_NAME, "❌ 拦截：试图写入无效文件 (0字节或丢失)");
+            _logger.Write(SERVICE_NAME, "拦截：试图写入无效文件 (0字节或丢失)");
             return;
         }
-        // 鲁棒性设计：拒绝空文本
+        // 拒绝空文本
         if (remoteProfile.Type == ProfileType.Text && string.IsNullOrEmpty(remoteProfile.DisplayText))
         {
-            _logger.Write(SERVICE_NAME, "❌ 拦截：试图写入空文本");
+            _logger.Write(SERVICE_NAME, "拦截：试图写入空文本");
             return;
         }
 
@@ -491,7 +491,7 @@ public class DownloadService : Service
 
         if (!await IsLocalProfileObsolete(cancelToken))
         {
-            // 鲁棒性设计：精准加锁，只在真正写入Windows API的瞬间持有锁
+            // 精准加锁，只在真正写入Windows API的瞬间持有锁
             await LocalClipboard.Semaphore.WaitAsync(cancelToken);
             try
             {
@@ -501,20 +501,6 @@ public class DownloadService : Service
                 // 采用上游的新异步日志方法
                 await _logger.WriteAsync(SERVICE_NAME, "Success set Local clipboard with remote profile: " + remoteProfile.ShortDisplayText);
                 
-                if (_syncConfig.NotifyOnDownloaded)
-                {
-                    _clipboardNotificationHelper.Notify(remoteProfile, cancelToken);
-                }
-                await Task.Delay(TimeSpan.FromMilliseconds(50), cancelToken);   // 设置本地剪贴板可能有延迟，延迟发送事件
-            }
-            finally
-            {
-                LocalClipboard.Semaphore.Release();
-            }
-            {
-                await _localClipboardSetter.Set(remoteProfile, cancelToken, false);
-                _localProfileCache = remoteProfile;
-                _logger.Write(SERVICE_NAME, "Success set Local clipboard with remote profile: " + remoteProfile.ShortDisplayText);
                 if (_syncConfig.NotifyOnDownloaded)
                 {
                     _clipboardNotificationHelper.Notify(remoteProfile, cancelToken);
