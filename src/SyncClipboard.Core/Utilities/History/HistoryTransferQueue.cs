@@ -1,12 +1,12 @@
-using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
+using SyncClipboard.Core.Commons;
+using SyncClipboard.Core.Exceptions;
 using SyncClipboard.Core.Interfaces;
 using SyncClipboard.Core.Models;
-using SyncClipboard.Core.RemoteServer;
-using SyncClipboard.Core.Exceptions;
-using System.Diagnostics.CodeAnalysis;
-using SyncClipboard.Core.Commons;
 using SyncClipboard.Core.Models.UserConfigs;
-using Microsoft.Extensions.DependencyInjection;
+using SyncClipboard.Core.RemoteServer;
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SyncClipboard.Core.Utilities.History;
 
@@ -16,14 +16,16 @@ public class HistoryTransferQueue : IDisposable
     private readonly RemoteClipboardServerFactory _remoteServerFactory;
     private readonly HistoryManager _historyManager;
     private readonly IProfileEnv _profileEnv;
+    private readonly ConfigManager _configManager;
 
     // 队列和任务存储
     private readonly Queue<TransferTask> _pendingTasks = new();
     private readonly ConcurrentDictionary<string, TransferTask> _activeTasks = new();
+    public readonly SemaphoreSlim ActiveTaskAddMutex = new(1, 1);
     private readonly object _queueLock = new();
 
     // 并发控制
-    private readonly SemaphoreSlim _workerSemaphore = new(5, 5); // 并行度=5
+    private readonly SemaphoreSlim _workerSemaphore = new(4, 4); // 并行度=4
     private readonly SemaphoreSlim _startSemaphore = new(1, 1); // 确保启动方法的并发安全
     private readonly AutoResetEvent _queueSignal = new(false); // 条件变量：通知队列有新任务
     private CancellationTokenSource _globalCts = new();
@@ -41,12 +43,14 @@ public class HistoryTransferQueue : IDisposable
         RemoteClipboardServerFactory remoteServerFactory,
         HistoryManager historyManager,
         IProfileEnv profileEnv,
+        ConfigManager configManager,
         [FromKeyedServices(Env.RuntimeConfigName)] ConfigBase runtimeConfig)
     {
         _logger = logger;
         _remoteServerFactory = remoteServerFactory;
         _historyManager = historyManager;
         _profileEnv = profileEnv;
+        _configManager = configManager;
         _remoteServerFactory.CurrentServerChanged += (_, _) => ClearQueue();
         runtimeConfig.ListenConfig<RuntimeHistoryConfig>(OnSyncHistoryChanged);
     }
@@ -107,6 +111,7 @@ public class HistoryTransferQueue : IDisposable
                 runningTask.ExternalProgressReporter = progress;
             }
             await runningTask.CompletionSource.Task.WaitAsync(ct);
+            runningTask.Profile.CopyTo(profile);
             return;
         }
 
@@ -122,7 +127,12 @@ public class HistoryTransferQueue : IDisposable
             ExternalProgressReporter = progress
         };
 
-        _activeTasks.AddOrUpdate(task.TaskId, task, (_, _) => task);
+        await ActiveTaskAddMutex.WaitAsync(ct);
+        using (var _ = new ScopeGuard(() => ActiveTaskAddMutex.Release()))
+        {
+            NotifyStatusChanged(task);
+            _activeTasks.AddOrUpdate(task.TaskId, task, (_, _) => task);
+        }
 
         var status = await ExecuteTaskAsync(task).WaitAsync(ct);
         if (status != TransferTaskStatus.Completed)
@@ -158,14 +168,17 @@ public class HistoryTransferQueue : IDisposable
             Status = TransferTaskStatus.Pending
         };
 
+        await ActiveTaskAddMutex.WaitAsync(ct);
+        using var _ = new ScopeGuard(() => ActiveTaskAddMutex.Release());
+
         _activeTasks.TryAdd(taskId, task);
 
+        NotifyStatusChanged(task);
         lock (_queueLock)
         {
             _pendingTasks.Enqueue(task);
         }
-
-        _logger.Write($"{type} 任务 {taskId} 已加入队列");
+        // await _logger.WriteAsync($"{type} 任务 {taskId} 已加入队列");
 
         await EnsureProcessingTaskStartedAsync(ct);
         _queueSignal.Set();
@@ -190,6 +203,32 @@ public class HistoryTransferQueue : IDisposable
         return null;
     }
 
+    public Task<List<TransferTask>> GetAllActiveTasks(CancellationToken token)
+    {
+        return Task.Run(() =>
+         {
+             return _activeTasks.Values
+                 .OrderBy(t => t.CreatedTime)
+                 .ToList();
+         }, token);
+    }
+
+    public async Task WaitAllTasks(CancellationToken token)
+    {
+        var tasks = await GetAllActiveTasks(token);
+        var completionTasks = tasks
+            .Where(t => t.Status == TransferTaskStatus.Running ||
+                        t.Status == TransferTaskStatus.Pending ||
+                        t.Status == TransferTaskStatus.WaitForRetry)
+            .Select(t => t.CompletionSource.Task)
+            .ToList();
+
+        if (completionTasks.Count != 0)
+        {
+            await Task.WhenAll(completionTasks).WaitAsync(token);
+        }
+    }
+
     public bool CancelDownload(string profileId)
     {
         var taskId = TransferTask.GetTaskId(TransferType.Download, profileId);
@@ -200,6 +239,14 @@ public class HistoryTransferQueue : IDisposable
     {
         var taskId = TransferTask.GetTaskId(TransferType.Upload, profileId);
         return CancelTask(taskId);
+    }
+
+    public void DeleteTask(string profileId)
+    {
+        var taskId = TransferTask.GetTaskId(TransferType.Upload, profileId);
+        CancelTask(taskId);
+        taskId = TransferTask.GetTaskId(TransferType.Download, profileId);
+        CancelTask(taskId);
     }
 
     private bool CancelTask(string taskId)
@@ -320,6 +367,7 @@ public class HistoryTransferQueue : IDisposable
         _workerSemaphore?.Dispose();
         _startSemaphore?.Dispose();
         _queueSignal?.Dispose();
+        ActiveTaskAddMutex?.Dispose();
 
         foreach (var task in _activeTasks.Values)
         {
@@ -392,7 +440,6 @@ public class HistoryTransferQueue : IDisposable
                     await Task.Delay(time, token);
                 }
             }
-
 
             var worker = Task.Run(async () =>
             {
@@ -503,8 +550,11 @@ public class HistoryTransferQueue : IDisposable
         }
 
         await server.DownloadHistoryDataAsync(task.ProfileId, localDataPath, task.ProgressReporter, ct);
-        await profile.SetTranseferData(localDataPath, true, ct);
-        await _historyManager.AddLocalProfile(profile, ct);
+        await profile.SetTransferData(localDataPath, true, ct);
+        if (_configManager.GetConfig<HistoryConfig>().EnableHistory)
+        {
+            await _historyManager.AddLocalProfile(profile, updateLastAccessed: false, token: ct);
+        }
     }
 
     private async Task ExecuteUploadAsync(TransferTask task, CancellationToken ct)

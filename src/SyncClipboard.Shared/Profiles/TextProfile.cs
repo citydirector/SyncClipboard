@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SyncClipboard.Shared.Profiles.Models;
 using SyncClipboard.Shared.Utilities;
@@ -47,13 +46,13 @@ public class TextProfile : Profile
             }
         }
         Size = entity.Size;
-        Hash = entity.Hash;
+        Hash = string.IsNullOrEmpty(entity.Hash) ? null : entity.Hash;
     }
 
     public TextProfile(ProfileDto dto)
     {
         _text = dto.Text;
-        Hash = dto.Hash;
+        Hash = string.IsNullOrEmpty(dto.Hash) ? null : dto.Hash;
         _hasTransferData = dto.HasData;
         _transferDataName = dto.DataName;
         Size = dto.Size;
@@ -66,24 +65,6 @@ public class TextProfile : Profile
             return _text[..500] + "\n...";
         }
         return _text;
-    }
-
-    public override async Task<ClipboardProfileDTO> ToDto(CancellationToken token)
-    {
-        if (_hasTransferData)
-        {
-            if (_fullText is not null)
-            {
-                return new ClipboardProfileDTO(string.Empty, _fullText, Type);
-            }
-            else if (File.Exists(_transferDataPath))
-            {
-                var fullText = await File.ReadAllTextAsync(_transferDataPath, token);
-                return new ClipboardProfileDTO(string.Empty, fullText, Type);
-            }
-            throw new Exception("Text profile data is not ready.");
-        }
-        return new ClipboardProfileDTO(string.Empty, _text, Type);
     }
 
     public override async Task<ProfileDto> ToProfileDto(CancellationToken token)
@@ -181,16 +162,15 @@ public class TextProfile : Profile
         {
             try
             {
-                await SetTranseferData(_transferDataPath, true, token);
+                await SetTransferData(_transferDataPath, true, token);
                 return null;
             }
             catch when (token.IsCancellationRequested is false)
             { }
         }
 
-        _transferDataName ??= Utility.CreateTimeBasedFileName();
-        var fileName = $"{Type}_{_transferDataName}.txt";
-        var dataPath = Path.Combine(GetWorkingDir(persistentDir, await GetHash(token)), fileName);
+        _transferDataName ??= $"{Type}_{Utility.CreateTimeBasedFileName()}.txt";
+        var dataPath = Path.Combine(CreateWorkingDir(persistentDir, await GetHash(token)), _transferDataName);
         return dataPath;
     }
 
@@ -210,9 +190,9 @@ public class TextProfile : Profile
             return;
         }
 
-        var workingDir = GetWorkingDir(persistentDir, Type, await GetHash(token));
-        var dataName = _transferDataName ?? Utility.CreateTimeBasedFileName();
-        var path = Path.Combine(workingDir, $"{Type}_{dataName}.txt");
+        var workingDir = CreateWorkingDir(persistentDir, Type, await GetHash(token));
+        var dataName = _transferDataName ?? $"{Type}_{Utility.CreateTimeBasedFileName()}.txt";
+        var path = Path.Combine(workingDir, dataName);
         await File.WriteAllTextAsync(path, _fullText, new UTF8Encoding(false), token);
         _transferDataPath = path;
         _transferDataName = dataName;
@@ -222,7 +202,7 @@ public class TextProfile : Profile
     public override async Task<ProfilePersistentInfo> Persist(string persistentDir, CancellationToken token)
     {
         await WriteFullTextToFile(persistentDir, token);
-        var workingDir = GetWorkingDir(persistentDir, Type, await GetHash(token));
+        var workingDir = QueryGetWorkingDir(persistentDir, Type, await GetHash(token));
         var path = GetPersistentPath(workingDir, _transferDataPath);
         return new ProfilePersistentInfo
         {
@@ -251,12 +231,12 @@ public class TextProfile : Profile
         return _transferDataPath;
     }
 
-    public override async Task SetTranseferData(string path, bool verify, CancellationToken token)
+    public override async Task SetTransferData(string path, bool verify, CancellationToken token)
     {
-        if (verify && File.Exists(path))
+        if (verify && File.Exists(path) && Hash is not null)
         {
             var fileHash = await Utility.CalculateFileSHA256(path, token);
-            var textHash = await GetHash(token);
+            var textHash = Hash;
 
             if (!string.Equals(fileHash, textHash, StringComparison.OrdinalIgnoreCase))
             {
@@ -275,9 +255,9 @@ public class TextProfile : Profile
             return;
         }
 
-        await SetTranseferData(path, true, token);
+        await SetTransferData(path, true, token);
 
-        var workingDir = GetWorkingDir(persistentDir, Type, Hash!);
+        var workingDir = CreateWorkingDir(persistentDir, Type, Hash!);
         var persistentPath = GetPersistentPath(workingDir, path);
 
         if (Path.IsPathRooted(persistentPath!) is false)
@@ -311,5 +291,17 @@ public class TextProfile : Profile
         }
 
         throw new Exception("Text profile data lost.");
+    }
+
+    public override void CopyTo(Profile target)
+    {
+        if (target is not TextProfile textTarget)
+            return;
+
+        textTarget._fullText = _fullText;
+        textTarget._transferDataPath = _transferDataPath;
+        textTarget._transferDataName = _transferDataName;
+        textTarget.Hash = Hash;
+        textTarget.Size = Size;
     }
 }

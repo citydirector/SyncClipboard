@@ -289,7 +289,7 @@
     <value>打开</value>
   </data>
   <data name="OpenFolder" xml:space="preserve">
-    <value>在文件夹中显示</value>
+    <value>打开文件夹</value>
   </data>
   <data name="ClipboardImageUpdated" xml:space="preserve">
     <value>图片同步成功</value>
@@ -325,13 +325,16 @@
     <value>剪贴板下载失败</value>
   </data>
   <data name="DownloadingFile" xml:space="preserve">
-    <value>正在下载远程文件</value>
+    <value>正在下载</value>
+  </data>
+  <data name="UploadingFile" xml:space="preserve">
+    <value>正在上传</value>
   </data>
   <data name="DownloadStatus" xml:space="preserve">
     <value>当前状态</value>
   </data>
   <data name="Preparing" xml:space="preserve">
-    <value>准备下载</value>
+    <value>准备中</value>
   </data>
   <data name="Canceled" xml:space="preserve">
     <value>已取消</value>
@@ -537,7 +540,14 @@ Esc：关闭面板</value>
   <data name="DoNotUploadWhenCut" xml:space="preserve">
     <value>剪切文件时不上传</value>
   </data>
-  <data name="RetryTimes" xml:space="preserve">
+  <data name="IgnoreExcludeForSyncSuggestion" xml:space="preserve">
+    <value>忽略剪贴板中的“不建议同步”标记</value>
+  </data>
+  <data name="IgnoreExcludeForSyncSuggestionDescription" xml:space="preserve">
+    <value>部分应用会为剪贴板中的敏感信息设置“不建议同步”标记，启用此选项将忽略该标记</value>
+  </data>  <data name="NotifyFileSyncProgress" xml:space="preserve">
+    <value>同步文件时使用系统通知展示进度</value>
+  </data>  <data name="RetryTimes" xml:space="preserve">
     <value>重试次数</value>
   </data>
   <data name="FileSyncFilter" xml:space="preserve">
@@ -663,6 +673,9 @@ Esc：关闭面板</value>
   <data name="NewVersionDownloaded" xml:space="preserve">
     <value>新版本安装包已下载</value>
   </data>
+  <data name="CurrentPackageDownloadManually" xml:space="preserve">
+    <value>，当前包名为'{0}'，请手动下载。</value>
+  </data>
   <data name="General" xml:space="preserve">
     <value>通用</value>
   </data>
@@ -699,26 +712,29 @@ Esc：关闭面板</value>
   <data name="ClipboardHistory" xml:space="preserve">
     <value>历史记录</value>
   </data>
+  <data name="EnableLocalHistory" xml:space="preserve">
+    <value>记录本地剪贴板到历史记录</value>
+  </data>
   <data name="CloseHistoryWindowWhenLostFocus" xml:space="preserve">
     <value>失焦时关闭</value>
   </data>
   <data name="MaxItemCount" xml:space="preserve">
     <value>最大记录条数</value>
   </data>
+  <data name="MaxItemCountDescription" xml:space="preserve">
+    <value>仅针对未同步记录，0表示不限制数量</value>
+  </data>
   <data name="HistoryRetentionDescription" xml:space="preserve">
-    <value>0表示不限制时长</value>
+    <value>仅针对未同步记录，0表示不限制时长</value>
   </data>
   <data name="HistoryRetentionMinutes" xml:space="preserve">
     <value>历史记录保存时长(分钟)</value>
   </data>
   <data name="EnableSyncHistory" xml:space="preserve">
-    <value>启用同步历史记录</value>
+    <value>同步历史记录</value>
   </data>
   <data name="EnableSyncHistoryDescription" xml:space="preserve">
-    <value>启用后，本地的自动删除条件（最大条数、保留时长）将失效，自动删除将遵循服务器配置。</value>
-  </data>
-  <data name="HistoryDescription" xml:space="preserve">
-    <value>当用户手动删除文件时，历史记录也会失效</value>
+    <value>已同步记录的自动删除将遵循服务器配置</value>
   </data>
   <data name="HistoryPanel" xml:space="preserve">
     <value>历史记录面板</value>
@@ -866,13 +882,22 @@ Esc：关闭面板</value>
   <data name="OnlyShowLocal" xml:space="preserve">
     <value>仅显示本地记录</value>
   </data>
-  <data name="Refresh" xml:space="preserve">
-    <value>刷新</value>
-  </data>
   <data name="CancelDownload" xml:space="preserve">
     <value>取消下载</value>
   </data>
   <data name="CancelUpload" xml:space="preserve">
     <value>取消上传</value>
+  </data>
+  <data name="SortByLastAccessed" xml:space="preserve">
+    <value>按最后复制时间排序</value>
+  </data>
+  <data name="UploadWarning" xml:space="preserve">
+    <value>上传警告</value>
+  </data>
+  <data name="ContinueUpload" xml:space="preserve">
+    <value>此条目被内容控制过滤，是否继续上传？</value>
+  </data>
+  <data name="ServerTimeError" xml:space="preserve">
+    <value>服务器时间与本地时间差距过大，请同步时间</value>
   </data>
 </root>

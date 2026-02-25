@@ -19,7 +19,6 @@ public class UpdateChecker : IStateMachine<UpdaterStatus>
     public UpdaterStatus CurrentState { get; private set; }
     public HttpDownloadProgress DownloadProgress { get; private set; }
 
-
     private bool NeedUpdate { get; set; } = false;
     private GitHubRelease? GithubRelease { get; set; } = null;
     private GitHubAsset? GithubAsset { get; set; } = null;
@@ -316,7 +315,7 @@ public class UpdateChecker : IStateMachine<UpdaterStatus>
             UpdaterState.Downloaded => I18n.Strings.NewVersionDownloaded,
             UpdaterState.Failed => I18n.Strings.Error,
             UpdaterState.UpdateAvailableAtGitHubExtra => I18n.Strings.FoundNewVersion + GithubRelease!.TagName
-                + $", current package '{updateInfo.PackageName}', please download manually.",
+                + string.Format(I18n.Strings.CurrentPackageDownloadManually, updateInfo.PackageName),
             _ => "Unknown state"
         };
     }

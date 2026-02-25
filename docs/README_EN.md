@@ -35,8 +35,8 @@
       - [Use Autox.js](#use-autoxjs)
     - [Notes for Clients](#notes-for-clients)
   - [API](#api)
-    - [Download/Upload Text](#downloadupload-text)
-    - [Download/Upload File/Image](#downloadupload-fileimage)
+    - [Get Clipboard](#get-clipboard)
+    - [Upload Clipboard](#upload-clipboard)
     - [SyncClipboard.json](#syncclipboardjson)
   - [Open Source Dependencies](#open-source-dependencies)
 
@@ -44,8 +44,9 @@
 
 ## Features
 
-- Clipboard syncing, supporting text/image/file, client-server architecture. You can also use a WebDAV compatible netdisk as server.
-- Clipboard history manager.  
+- Cross-platform (Windows/macOS/Linux) real-time clipboard syncing, clipboard history management, and history syncing.
+- Supports desktop client built-in server, Docker-deployed server, or WebDAV-compatible cloud storage as server.
+- Mobile clipboard syncing based on third-party tools.
 - Optimize image type clipboard:
   - Paste image to a textbox directly after copying a image file from file system, and vice versa.
   - Download the original file and copy it after copying a image in web browser. This is helpful for copying an animated image in browser. Web sites always prevent downloads from non-browser, so this feature isn't always usable.
@@ -226,12 +227,12 @@ Multiple `--command-{command-name}` arguments are supported, multiple commands a
 ### IOS 
 #### Use [Shortcuts](https://apps.apple.com/us/app/shortcuts/id1462947752)  
 
-- Sync manually, import this [Shortcut](https://www.icloud.com/shortcuts/d1b9e49556e04c2ca290590294afbd99)
-- Sync Automatically, import this [Shortcut](https://www.icloud.com/shortcuts/1ced32f011bc4d3498dca9960dc2c0d5). This shortcut keeps running in the background forever, you need to stop it manually. You can also change whether to send notifications and querying interval time manullay.
+- Sync manually, import this [Shortcut](https://www.icloud.com/shortcuts/34404963b512432cb5672c8a95001b19)
+- Sync Automatically, import this [Shortcut](https://www.icloud.com/shortcuts/05e7ac5aca5f4f588b776117cf740587). This shortcut keeps running in the background forever, you need to stop it manually. You can also change whether to send notifications and querying interval time manullay.
 
 ### Android
 #### Use [HTTP Request Shortcuts](https://github.com/Waboodoo/HTTP-Shortcuts)
-Import this [file](/script/en/shortcuts.zip), Change the `UserName`, `UserToken`, `url` in `Variables` to yours. Make sure no slash(/) at the end of url. `HTTP Request Shortcuts` supports using shortcuts from drop-down menu, home screen widgets, home screen icons and share sheet.
+Import this [file](https://github.com/Jeric-X/SyncClipboard/raw/refs/heads/dev/script/en/shortcuts.zip), Change the `UserName`, `UserToken`, `url` in `Variables` to yours. Make sure no slash(/) at the end of url. `HTTP Request Shortcuts` supports using shortcuts from drop-down menu, home screen widgets, home screen icons and share sheet.
 
 <details>
 <summary>Screenshots</summary>
@@ -273,40 +274,44 @@ There are three necessery config(maybe different words, same uses).
 ## API
 
 In a standalone server environment, set the environment variable ASPNETCORE_ENVIRONMENT to Development before running the server, or open the server in the desktop client and enable diagnostic mode in settings.
-Then visit `http://ip:port/swagger/index.html` to access the API page. The following are some simple APIs compatible with WebDAV. For more complex APIs, please refer to the API page.
+Then visit `http://ip:port/swagger/index.html` to access the API description page.
 
-### Download/Upload Text
-```
+APIs that do not start with `/api/` are WebDAV-compatible APIs. When implementing clients, calling these APIs can support clipboard synchronization based on both WebDAV servers and official SyncClipboard servers. The key APIs are described below.
+
+### Get Clipboard
+```shell
 GET /SyncClipboard.json
-PUT /SyncClipboard.json
+GET /file/dataName            # optional
 ```
 
-### Download/Upload File/Image
-```
-GET  /SyncClipboard.json
-HEAD /file/filename         // optional
-GET  /file/filename
-
-PUT /file/filename
+### Upload Clipboard
+```shell
+PUT /file/dataName            # optional
 PUT /SyncClipboard.json
 ```
 
 ### SyncClipboard.json
 ```jsonc
 {
-    "Type" : "Text",
-    "Clipboard" : "Content",
-    "File":""
-}
-
-{
-    "Type": "Image", // or "File", "Group"
-    "Clipboard": "hash, optional",
-    "File": "filename"
+  "type": "Text",             // or Image/File/Group, required
+  "hash": "string",           // optional, empty string is treated as null
+  "text": "string",           // required
+  "hasData": true,            // or false, required  
+  "dataName": "string",       // if hasData is true, required
+  "size": 0                   // optional
 }
 ```
 
-For hash calculation method, please refer to [docs/Hash.md](Hash.md)
+- All API fields are case-sensitive
+- `text` stores the clipboard preview string, or the complete content of Text type clipboard
+- `hasData` indicates whether an additional file is used to store the complete clipboard information
+  - For Image/File/Group types, `hasData` is always true
+  - For Text type, depending on the original string length, you can optionally use an additional UTF8-encoded `.txt` file to store the complete string. If so, the `text` field only stores the beginning part of the complete string
+- `hash` value is a unique identifier of the clipboard content. For the calculation method, please refer to [docs/Hash.md](Hash.md)
+  - The sender should provide `hash` information whenever possible
+  - When the `hash` value exists, the receiver should verify the consistency between the `hash` information and the clipboard content, and execute the error handling process when inconsistent
+  - When `hash` is empty, or in an environment where `hash` cannot be calculated, you can use the combination of `type`/`text` to simply determine the equality of clipboard content
+- `size` indicates the total byte size of the copied file, or the length of the complete string for Text type clipboard
 
 ## Open Source Dependencies
 [NativeNotification](https://github.com/Jeric-X/NativeNotification) 

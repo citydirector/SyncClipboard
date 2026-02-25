@@ -73,112 +73,41 @@ public class HistoryController(HistoryService historyService) : ControllerBase
     //     return Ok(list);
     // }
 
-    // GET api/history
-    // Return list with optional filters
-    // Query parameters:
-    //   page: page index starting from 1 (default 1). Page size is fixed to 50 (max 50).
-    //   before: Unix timestamp in milliseconds (UTC). Only records with CreateTime < before will be returned.
-    //   after:  Unix timestamp in milliseconds (UTC). Only records with CreateTime >= after will be returned.
-    //   modifiedAfter: Unix timestamp in milliseconds (UTC). Only records with LastModified >= modifiedAfter will be returned.
-    //   types: ProfileTypeFilter flag enum (default All). Example: types=Text,Image
-    //   q: optional search text (matches Text field, case-insensitive)
-    [HttpGet]
-    public async Task<ActionResult<List<HistoryRecordDto>>> GetAll(
-        [FromQuery] int? page,
-        [FromQuery] long? before = null,
-        [FromQuery] long? after = null,
-        [FromQuery] long? modifiedAfter = null,
-        [FromQuery] ProfileTypeFilter? types = ProfileTypeFilter.All,
-        [FromQuery(Name = "q")] string? searchText = null,
-        [FromQuery] bool? starred = null)
+    // POST api/history/query
+    // Query history records with filters
+    // Request form data contains HistoryQueryDto
+    [HttpPost("query")]
+    public async Task<ActionResult<List<HistoryRecordDto>>> QueryHistory([FromForm] HistoryQueryDto query)
     {
-        page ??= 1;
-        types ??= ProfileTypeFilter.All;
-        if (page < 1)
-            return BadRequest("page must be >= 1");
+        query ??= new HistoryQueryDto();
+
+        if (query.Page < 1)
+            query.Page = 1;
 
         const int PAGE_SIZE = 50;
 
-        DateTime? beforeDt = null;
-        if (before.HasValue)
-        {
-            try
-            {
-                beforeDt = DateTimeOffset.FromUnixTimeMilliseconds(before.Value).UtcDateTime;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                return BadRequest("before must be a valid Unix timestamp in milliseconds");
-            }
-        }
-
-        DateTime? afterDt = null;
-        if (after.HasValue)
-        {
-            try
-            {
-                afterDt = DateTimeOffset.FromUnixTimeMilliseconds(after.Value).UtcDateTime;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                return BadRequest("after must be a valid Unix timestamp in milliseconds");
-            }
-        }
+        DateTime? beforeDt = query.Before?.UtcDateTime;
+        DateTime? afterDt = query.After?.UtcDateTime;
 
         if (beforeDt.HasValue && afterDt.HasValue && afterDt.Value >= beforeDt.Value)
         {
             return BadRequest("after must be less than before");
         }
 
-        DateTime? modifiedAfterDt = null;
-        if (modifiedAfter.HasValue)
-        {
-            try
-            {
-                modifiedAfterDt = DateTimeOffset.FromUnixTimeMilliseconds(modifiedAfter.Value).UtcDateTime;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                return BadRequest("modifiedAfter must be a valid Unix timestamp in milliseconds");
-            }
-        }
+        DateTime? modifiedAfterDt = query.ModifiedAfter?.UtcDateTime;
 
         var list = await _historyService.GetListAsync(
             HARD_CODED_USER_ID,
-            page.Value,
+            query.Page,
             PAGE_SIZE,
             beforeDt,
             afterDt,
-            types.Value,
-            searchText,
-            starred,
-            modifiedAfterDt);
+            query.Types,
+            query.SearchText,
+            query.Starred,
+            modifiedAfterDt,
+            query.SortByLastAccessed);
         return Ok(list);
-    }
-
-    private static bool IsInvalidFileName(string fileName)
-    {
-        // Reject path traversal
-        if (fileName.Contains("..")) return true;
-
-        // Disallow directory separators explicitly
-        if (fileName.Contains(Path.DirectorySeparatorChar)) return true;
-        if (fileName.Contains(Path.AltDirectorySeparatorChar)) return true;
-
-        // Disallow any OS-invalid filename characters
-        var invalid = Path.GetInvalidFileNameChars();
-        if (fileName.IndexOfAny(invalid) >= 0) return true;
-
-        // Length limit (avoid extremely long names)
-        if (fileName.Length > 255) return true;
-
-        // Control characters
-        foreach (var c in fileName)
-        {
-            if (char.IsControl(c)) return true;
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -232,65 +161,67 @@ public class HistoryController(HistoryService historyService) : ControllerBase
 
     private static HistoryRecordDto ParseHistoryRecord(Dictionary<string, string> metadata)
     {
-        if (!metadata.TryGetValue("hash", out var hash) || string.IsNullOrWhiteSpace(hash))
-            throw new ArgumentException("Hash is required");
+        var type = ParseEnum<ProfileType>(metadata, "type");
 
-        if (!metadata.TryGetValue("type", out var typeStr)
-            || string.IsNullOrWhiteSpace(typeStr)
-            || !Enum.TryParse<ProfileType>(typeStr, true, out var type))
+        if (type is null || type == ProfileType.None || type == ProfileType.Unknown)
         {
-            throw new ArgumentException("Type is required");
+            throw new ArgumentException($"Type is invalid or missing");
         }
-        if (type == ProfileType.None)
-            throw new ArgumentException("Type is required");
-
-        DateTimeOffset? createTime = null;
-        if (metadata.TryGetValue("createTime", out var ctStr) && !string.IsNullOrWhiteSpace(ctStr))
-        {
-            DateTimeOffset.TryParse(ctStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var ct);
-            createTime = ct;
-        }
-
-        DateTimeOffset? lastModified = null;
-        if (metadata.TryGetValue("lastModified", out var lmStr) && !string.IsNullOrWhiteSpace(lmStr))
-        {
-            DateTimeOffset.TryParse(lmStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var lm);
-            lastModified = lm;
-        }
-
-        bool starred = metadata.TryGetValue("starred", out var starStr) && bool.TryParse(starStr, out var star) && star;
-
-        bool pinned = metadata.TryGetValue("pinned", out var pinStr) && bool.TryParse(pinStr, out var pin) && pin;
-
-        int version = 0;
-        if (metadata.TryGetValue("version", out var verStr) && int.TryParse(verStr, out var ver))
-            version = ver;
-
-        bool isDeleted = metadata.TryGetValue("isDeleted", out var delStr) && bool.TryParse(delStr, out var del) && del;
-
-        string text = metadata.TryGetValue("text", out var textStr) ? textStr : string.Empty;
-
-        long size = 0;
-        if (metadata.TryGetValue("size", out var sizeStr) && long.TryParse(sizeStr, out var sz))
-            size = sz;
-
-        bool hasData = metadata.TryGetValue("hasData", out var hasDataStr) && bool.TryParse(hasDataStr, out var hasDataVal) && hasDataVal;
 
         return new HistoryRecordDto
         {
-            Hash = hash,
-            Type = type,
-            CreateTime = createTime ?? DateTimeOffset.UtcNow,
-            LastModified = lastModified ?? DateTimeOffset.UtcNow,
-            Starred = starred,
-            Pinned = pinned,
-            Version = version,
-            IsDeleted = isDeleted,
-            Text = text,
-            Size = size,
-            HasData = hasData
+            Hash = GetRequiredString(metadata, "hash"),
+            Type = type.Value,
+            CreateTime = ParseDateTimeOffset(metadata, "createTime"),
+            LastModified = ParseDateTimeOffset(metadata, "lastModified"),
+            LastAccessed = ParseDateTimeOffset(metadata, "lastAccessed"),
+            Starred = ParseBool(metadata, "starred"),
+            Pinned = ParseBool(metadata, "pinned"),
+            Version = ParseInt(metadata, "version"),
+            IsDeleted = ParseBool(metadata, "isDeleted"),
+            Text = metadata.TryGetValue("text", out var text) ? text : string.Empty,
+            Size = ParseLong(metadata, "size"),
+            HasData = ParseBool(metadata, "hasData")
         };
     }
+
+    private static string GetRequiredString(Dictionary<string, string> metadata, string key)
+    {
+        if (!metadata.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException($"{key} is required");
+        return value;
+    }
+
+    private static T? ParseEnum<T>(Dictionary<string, string> metadata, string key) where T : struct, Enum
+    {
+        if (!metadata.TryGetValue(key, out var value)
+            || string.IsNullOrWhiteSpace(value)
+            || !Enum.TryParse<T>(value, true, out var result))
+        {
+            return null;
+        }
+        return result;
+    }
+
+    private static DateTimeOffset ParseDateTimeOffset(Dictionary<string, string> metadata, string key)
+    {
+        if (metadata.TryGetValue(key, out var value)
+            && !string.IsNullOrWhiteSpace(value)
+            && DateTimeOffset.TryParse(value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var result))
+        {
+            return result;
+        }
+        return DateTimeOffset.UtcNow;
+    }
+
+    private static bool ParseBool(Dictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) && bool.TryParse(value, out var result) && result;
+
+    private static int ParseInt(Dictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) && int.TryParse(value, out var result) ? result : 0;
+
+    private static long ParseLong(Dictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) && long.TryParse(value, out var result) ? result : 0;
 
     private static async Task<(bool HasData, Stream? DataStream)> TryHandleSectionAsync(
         MultipartSection section,
@@ -344,6 +275,15 @@ public class HistoryController(HistoryService historyService) : ControllerBase
         }
 
         return Conflict(payload);
+    }
+
+    // GET api/history/statistics
+    // 获取历史记录的统计信息
+    [HttpGet("statistics")]
+    public async Task<ActionResult<HistoryStatisticsDto>> GetStatistics(CancellationToken token)
+    {
+        var statistics = await _historyService.GetStatisticsAsync(HARD_CODED_USER_ID, token);
+        return Ok(statistics);
     }
 
     // DELETE api/history/clear

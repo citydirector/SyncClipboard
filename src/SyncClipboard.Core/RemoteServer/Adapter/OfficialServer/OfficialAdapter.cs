@@ -39,24 +39,39 @@ public sealed class OfficialAdapter(
     public event Action<Exception?>? ServerDisconnected;
     public event Action? ServerConnected;
 
-    public void OnConfigChanged(OfficialConfig config, SyncConfig syncConfig)
+    public void SetConfig(OfficialConfig config, SyncConfig syncConfig)
     {
         _officialConfig = config;
-
-        ReConnectSignalR();
-        _webDavAdapter.OnConfigChanged(new WebDavConfig
+        _webDavAdapter.SetConfig(new WebDavConfig
         {
             RemoteURL = config.RemoteURL,
             UserName = config.UserName,
             Password = config.Password,
             DeletePreviousFilesOnPush = config.DeletePreviousFilesOnPush
         }, syncConfig);
-        ReCreateHttpClient();
+    }
+
+    public void ApplyConfig()
+    {
+        try
+        {
+            ReConnectSignalR();
+            _webDavAdapter.ApplyConfig();
+            ReCreateHttpClient();
+        }
+        catch (Exception ex)
+        {
+            ServerDisconnected?.Invoke(ex);
+            _logger.Write("OfficialAdapter", $"Connection failed: {ex.Message}");
+            _hubConnection = null;
+            return;
+        }
     }
 
     private void ReConnectSignalR()
     {
         DisconnectSignalR();
+
         lock (_hubLock)
         {
             if (_hubConnection != null)
@@ -102,7 +117,7 @@ public sealed class OfficialAdapter(
         catch (Exception ex)
         {
             ServerDisconnected?.Invoke(ex);
-            _logger.Write("OfficialAdapter", $"SignalR连接失败: {ex.Message}");
+            await _logger.WriteAsync("OfficialAdapter", $"SignalR连接失败: {ex.Message}");
         }
     }
 
@@ -132,7 +147,7 @@ public sealed class OfficialAdapter(
             {
                 if (serverVer < requestVer)
                 {
-                    throw new InvalidOperationException($"Server version ({serverVersion}) is lower than client version ({requestVersion}). Please upgrade your server.");
+                    throw new InvalidOperationException($"Server version ({serverVersion}) is lower than requested version ({requestVersion}). Please upgrade your server.");
                 }
             }
         }
@@ -151,12 +166,12 @@ public sealed class OfficialAdapter(
         return _webDavAdapter.InitializeAsync(cancellationToken);
     }
 
-    public Task<ClipboardProfileDTO?> GetProfileAsync(CancellationToken cancellationToken = default)
+    public Task<ProfileDto?> GetProfileAsync(CancellationToken cancellationToken = default)
     {
         return _webDavAdapter.GetProfileAsync(cancellationToken);
     }
 
-    public Task SetProfileAsync(ClipboardProfileDTO profileDto, CancellationToken cancellationToken = default)
+    public Task SetProfileAsync(ProfileDto profileDto, CancellationToken cancellationToken = default)
     {
         return _webDavAdapter.SetProfileAsync(profileDto, cancellationToken);
     }
@@ -166,9 +181,9 @@ public sealed class OfficialAdapter(
         return _webDavAdapter.DownloadFileAsync(fileName, localPath, progress, cancellationToken);
     }
 
-    public Task UploadFileAsync(string fileName, string localPath, CancellationToken cancellationToken = default)
+    public Task UploadFileAsync(string fileName, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
-        return _webDavAdapter.UploadFileAsync(fileName, localPath, cancellationToken);
+        return _webDavAdapter.UploadFileAsync(fileName, localPath, progress, cancellationToken);
     }
 
     public Task CleanupTempFilesAsync(CancellationToken cancellationToken = default)
@@ -229,32 +244,25 @@ public sealed class OfficialAdapter(
         }
     }
 
-    public async Task<IEnumerable<HistoryRecordDto>> GetHistoryAsync(int page = 1, long? before = null, long? after = null, long? modifiedAfter = null, ProfileTypeFilter types = ProfileTypeFilter.All, string? searchText = null, bool? starred = null)
+    public async Task<IEnumerable<HistoryRecordDto>> GetHistoryAsync(int page = 1, DateTimeOffset? before = null, DateTimeOffset? after = null, DateTimeOffset? modifiedAfter = null, ProfileTypeFilter types = ProfileTypeFilter.All, string? searchText = null, bool? starred = null, bool sortByLastAccessed = false)
     {
         try
         {
-            var uriBuilder = new UriBuilder($"{_officialConfig.RemoteURL.TrimEnd('/')}/api/history");
-            var queryParams = new List<string>();
+            var url = new Uri(_httpClient.BaseAddress!, "api/history/query");
 
-            if (page > 0)
-                queryParams.Add($"page={page}");
-            if (before.HasValue)
-                queryParams.Add($"before={before.Value}");
-            if (after.HasValue)
-                queryParams.Add($"after={after.Value}");
-            if (modifiedAfter.HasValue)
-                queryParams.Add($"modifiedAfter={modifiedAfter.Value}");
-            if (types != ProfileTypeFilter.All)
-                queryParams.Add($"types={(int)types}");
-            if (!string.IsNullOrWhiteSpace(searchText))
-                queryParams.Add($"q={HttpUtility.UrlEncode(searchText)}");
-            if (starred.HasValue)
-                queryParams.Add($"starred={(starred.Value ? "true" : "false")}");
+            using var content = new MultipartFormDataContent
+            {
+                { new StringContent(page.ToString()), nameof(HistoryQueryDto.Page) },
+                { new StringContent(before?.ToString() ?? string.Empty), nameof(HistoryQueryDto.Before) },
+                { new StringContent(after?.ToString() ?? string.Empty), nameof(HistoryQueryDto.After) },
+                { new StringContent(modifiedAfter?.ToString() ?? string.Empty), nameof(HistoryQueryDto.ModifiedAfter) },
+                { new StringContent(types.ToString()), nameof(HistoryQueryDto.Types) },
+                { new StringContent(searchText ?? string.Empty), nameof(HistoryQueryDto.SearchText) },
+                { new StringContent(starred?.ToString() ?? string.Empty), nameof(HistoryQueryDto.Starred) },
+                { new StringContent(sortByLastAccessed.ToString()), nameof(HistoryQueryDto.SortByLastAccessed) }
+            };
 
-            if (queryParams.Count > 0)
-                uriBuilder.Query = string.Join("&", queryParams);
-
-            var response = await _httpClient.GetAsync(uriBuilder.Uri);
+            var response = await _httpClient.PostAsync(url, content);
             response.EnsureSuccessStatusCode();
 
             var stream = await response.Content.ReadAsStreamAsync();
@@ -284,6 +292,10 @@ public sealed class OfficialAdapter(
             response.EnsureSuccessStatusCode();
 
             var dto = await response.Content.ReadFromJsonAsync<HistoryRecordDto>(cancellationToken: cancellationToken);
+            if (dto is not null && dto.IsDeleted)
+            {
+                return null;
+            }
             return dto;
         }
         catch (Exception ex)
@@ -336,6 +348,7 @@ public sealed class OfficialAdapter(
                 { new StringContent(dto.Type.ToString()), "type" },
                 { new StringContent(dto.CreateTime.ToString("o")), "createTime" },
                 { new StringContent(dto.LastModified.ToString("o")), "lastModified" },
+                { new StringContent(dto.LastAccessed.ToString("o")), "lastAccessed" },
                 { new StringContent(dto.Starred.ToString()), "starred" },
                 { new StringContent(dto.Pinned.ToString()), "pinned" },
                 { new StringContent(dto.Version.ToString()), "version" },
@@ -348,15 +361,9 @@ public sealed class OfficialAdapter(
             if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
             {
                 var stream = File.OpenRead(filePath);
-                HttpContent fileContent;
-                if (progress is null)
-                {
-                    fileContent = new StreamContent(stream);
-                }
-                else
-                {
-                    fileContent = new ProgressableStreamContent(stream, progress, cancellationToken);
-                }
+                HttpContent fileContent = progress is null
+                    ? new StreamContent(stream)
+                    : new ProgressableStreamContent(stream, progress, cancellationToken);
                 fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
                 content.Add(fileContent, "data", Path.GetFileName(filePath));
             }
@@ -386,63 +393,6 @@ public sealed class OfficialAdapter(
         }
     }
 
-    private sealed class ProgressableStreamContent : HttpContent
-    {
-        private const int DefaultBufferSize = 81920; // 80KB .NET default
-        private readonly Stream _stream;
-        private readonly IProgress<HttpDownloadProgress> _progress;
-        private readonly CancellationToken _ct;
-        private readonly long? _totalLength;
-
-        public ProgressableStreamContent(Stream stream, IProgress<HttpDownloadProgress> progress, CancellationToken ct)
-        {
-            _stream = stream;
-            _progress = progress;
-            _ct = ct;
-            if (stream.CanSeek)
-            {
-                _totalLength = stream.Length;
-            }
-        }
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-        {
-            var buffer = new byte[DefaultBufferSize];
-            long totalBytesRead = 0;
-            int bytesRead;
-            while ((bytesRead = await _stream.ReadAsync(buffer, _ct)) > 0)
-            {
-                await stream.WriteAsync(buffer.AsMemory(0, bytesRead), _ct);
-                totalBytesRead += bytesRead;
-                _progress.Report(new HttpDownloadProgress
-                {
-                    BytesReceived = (ulong)totalBytesRead,
-                    TotalBytesToReceive = (ulong?)_totalLength
-                });
-            }
-        }
-
-        protected override bool TryComputeLength(out long length)
-        {
-            if (_totalLength is not null)
-            {
-                length = _totalLength.Value;
-                return true;
-            }
-            length = -1;
-            return false;
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-            if (disposing)
-            {
-                _stream.Dispose();
-            }
-        }
-    }
-
     public async Task DownloadHistoryDataAsync(string profileId, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         try
@@ -464,23 +414,23 @@ public sealed class OfficialAdapter(
         }
     }
 
-    public async Task SetCurrentProfile(ProfileType type, string hash, CancellationToken cancellationToken = default)
+    public async Task SetCurrentProfile(ProfileDto dto, CancellationToken cancellationToken = default)
     {
         try
         {
-            var url = new Uri(_httpClient.BaseAddress!, $"api/current?type={type}&hash={HttpUtility.UrlEncode(hash)}");
-            using var response = await _httpClient.PatchAsync(url, null, cancellationToken);
+            var url = new Uri(_httpClient.BaseAddress!, "SyncClipboard.json");
+            using var response = await _httpClient.PutAsJsonAsync(url, dto, JsonSerializerOptions.Web, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new RemoteHistoryNotFoundException($"Profile not found in history: {type}/{hash}");
+                throw new RemoteHistoryNotFoundException($"Profile not found in history: {dto.Type}/{dto.Hash}");
             }
 
             response.EnsureSuccessStatusCode();
         }
         catch (Exception ex)
         {
-            _logger.Write($"[OFFICIAL_ADAPTER] Failed to set current profile from history {type}/{hash}: {ex.Message}");
+            _logger.Write($"[OFFICIAL_ADAPTER] Failed to set current profile from history {dto.Type}/{dto.Hash}: {ex.Message}");
             throw;
         }
     }
@@ -489,7 +439,7 @@ public sealed class OfficialAdapter(
     {
         try
         {
-            var url = new Uri(_httpClient.BaseAddress!, "api/current");
+            var url = new Uri(_httpClient.BaseAddress!, "SyncClipboard.json");
             using var response = await _httpClient.GetAsync(url, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.NotFound)

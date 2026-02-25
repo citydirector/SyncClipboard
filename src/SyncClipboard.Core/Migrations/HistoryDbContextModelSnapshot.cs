@@ -41,6 +41,9 @@ namespace SyncClipboard.Core.Migrations
                     b.Property<bool>("IsLocalFileReady")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime>("LastAccessed")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("LastModified")
                         .HasColumnType("TEXT");
 

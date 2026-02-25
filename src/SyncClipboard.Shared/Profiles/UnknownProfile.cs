@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using SyncClipboard.Shared.Profiles.Models;
 
 namespace SyncClipboard.Shared.Profiles;
@@ -12,11 +11,6 @@ public class UnknownProfile : Profile
     public override string ShortDisplayText => "Do not support this type of clipboard";
 
     public override string DisplayText => "Do not support this type of clipboard";
-
-    public override Task<ClipboardProfileDTO> ToDto(CancellationToken token)
-    {
-        throw new NotImplementedException();
-    }
 
     public override Task<ProfileDto> ToProfileDto(CancellationToken token)
     {
@@ -60,7 +54,7 @@ public class UnknownProfile : Profile
         throw new NotImplementedException();
     }
 
-    public override Task SetTranseferData(string path, bool verify, CancellationToken token)
+    public override Task SetTransferData(string path, bool verify, CancellationToken token)
     {
         throw new NotImplementedException();
     }
@@ -68,5 +62,9 @@ public class UnknownProfile : Profile
     public override Task SetAndMoveTransferData(string persistentDir, string path, CancellationToken token)
     {
         throw new NotImplementedException();
+    }
+
+    public override void CopyTo(Profile target)
+    {
     }
 }

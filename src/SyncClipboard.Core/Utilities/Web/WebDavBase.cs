@@ -2,7 +2,9 @@ using SyncClipboard.Core.Interfaces;
 using SyncClipboard.Core.Models;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using System.Web;
 using System.Xml;
 
@@ -11,6 +13,12 @@ namespace SyncClipboard.Core.Utilities.Web
     abstract public class WebDavBase : IWebDav, IDisposable
     {
         private string USER_AGENT => AppConfig.AppStringId + AppConfig.AppVersion;
+
+        private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+        };
 
         protected ILogger? Logger;
         protected abstract IAppConfig AppConfig { get; }
@@ -112,6 +120,15 @@ namespace SyncClipboard.Core.Utilities.Web
             await HttpClient.PutAsync(url, streamContent, AdjustCancelToken(cancelToken));
         }
 
+        public async Task PutFile(string url, string localFilePath, IProgress<HttpDownloadProgress>? progress, CancellationToken? cancelToken = null)
+        {
+            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using HttpContent streamContent = progress is null
+                ? new StreamContent(fileStream)
+                : new ProgressableStreamContent(fileStream, progress, AdjustCancelToken(cancelToken));
+            await HttpClient.PutAsync(url, streamContent, AdjustCancelToken(cancelToken));
+        }
+
         public Task<string> GetText(string url, CancellationToken? cancelToken = null)
         {
             return HttpClient.GetStringAsync(url, AdjustCancelToken(cancelToken));
@@ -127,14 +144,14 @@ namespace SyncClipboard.Core.Utilities.Web
         {
             return HttpClient.GetFromJsonAsync<Type>(
                 url,
-                new JsonSerializerOptions(JsonSerializerDefaults.General),
+                SerializerOptions,
                 AdjustCancelToken(cancelToken)
             );
         }
 
         public async Task PutJson<Type>(string url, Type jsonContent, CancellationToken? cancelToken = null)
         {
-            var content = JsonContent.Create(jsonContent, null, new JsonSerializerOptions(JsonSerializerDefaults.General));
+            var content = JsonContent.Create(jsonContent, null, SerializerOptions);
             await content.LoadIntoBufferAsync(); // avoid chunked encoding
             await HttpClient.PutAsync(
                 url,

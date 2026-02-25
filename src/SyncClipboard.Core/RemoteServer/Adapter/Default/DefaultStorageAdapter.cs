@@ -11,7 +11,11 @@ public sealed class DefaultStorageAdapter : IStorageBasedServerAdapter
 {
     private const string ErrorMessage = "No valid server account configured.";
 
-    public void OnConfigChanged(object config, SyncConfig syncConfig)
+    public void SetConfig(object config, SyncConfig syncConfig)
+    {
+    }
+
+    public void ApplyConfig()
     {
     }
 
@@ -25,17 +29,17 @@ public sealed class DefaultStorageAdapter : IStorageBasedServerAdapter
         throw new NotSupportedException(ErrorMessage);
     }
 
-    public Task<ClipboardProfileDTO?> GetProfileAsync(CancellationToken cancellationToken = default)
+    public Task<ProfileDto?> GetProfileAsync(CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException(ErrorMessage);
     }
 
-    public Task SetProfileAsync(ClipboardProfileDTO profileDto, CancellationToken cancellationToken = default)
+    public Task SetProfileAsync(ProfileDto profileDto, CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException(ErrorMessage);
     }
 
-    public Task UploadFileAsync(string fileName, string localPath, CancellationToken cancellationToken = default)
+    public Task UploadFileAsync(string fileName, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException(ErrorMessage);
     }

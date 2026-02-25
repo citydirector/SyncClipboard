@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using SyncClipboard.Shared.Profiles.Models;
+using SyncClipboard.Shared.Utilities;
 
 namespace SyncClipboard.Shared.Profiles;
 
@@ -13,7 +14,6 @@ public abstract class Profile
     public abstract string DisplayText { get; }
     public abstract string ShortDisplayText { get; }
     public abstract Task<bool> IsLocalDataValid(bool quick, CancellationToken token);
-    public abstract Task<ClipboardProfileDTO> ToDto(CancellationToken token);
     public abstract Task<ProfileDto> ToProfileDto(CancellationToken token);
     protected abstract Task ComputeHash(CancellationToken token);
     protected abstract Task ComputeSize(CancellationToken token);
@@ -67,10 +67,11 @@ public abstract class Profile
     }
     public abstract Task<ProfilePersistentInfo> Persist(string persistentDir, CancellationToken token);
     public abstract Task<ProfileLocalInfo> Localize(string localDir, bool quick, CancellationToken token);
+    public abstract void CopyTo(Profile target);
 
     public abstract bool HasTransferData { get; }
     public abstract Task<string?> PrepareTransferData(string persistentDir, CancellationToken token);
-    public abstract Task SetTranseferData(string path, bool verify, CancellationToken token);
+    public abstract Task SetTransferData(string path, bool verify, CancellationToken token);
     public abstract Task SetAndMoveTransferData(string persistentDir, string path, CancellationToken token);
     public abstract Task<string?> NeedsTransferData(string persistentDir, CancellationToken token);
 
@@ -139,12 +140,20 @@ public abstract class Profile
         throw new NotImplementedException();
     }
 
-    protected string GetWorkingDir(string persistentDir, string hash)
+    public string CreateWorkingDir(string persistentDir, string hash)
     {
-        return GetWorkingDir(persistentDir, Type, hash);
+        return CreateWorkingDir(persistentDir, Type, hash);
     }
 
-    public static string GetWorkingDir(string persistentDir, ProfileType type, string hash)
+    public static string CreateWorkingDir(string persistentDir, ProfileType type, string hash)
+    {
+        var profileDir = QueryGetWorkingDir(persistentDir, type, hash);
+        if (!Directory.Exists(profileDir))
+            Directory.CreateDirectory(profileDir);
+        return profileDir;
+    }
+
+    public static string QueryGetWorkingDir(string persistentDir, ProfileType type, string hash)
     {
         if (hash.Contains(Path.DirectorySeparatorChar) || hash.Contains(Path.AltDirectorySeparatorChar))
         {
@@ -153,8 +162,6 @@ public abstract class Profile
 
         var dirName = $"{type}_{hash}";
         var profileDir = Path.Combine(persistentDir, dirName);
-        if (!Directory.Exists(profileDir))
-            Directory.CreateDirectory(profileDir);
         return profileDir;
     }
 
@@ -192,17 +199,16 @@ public abstract class Profile
         return Path.Combine(workingDir, persistentPath);
     }
 
-
     [return: NotNullIfNotNull(nameof(persistentPath))]
     public static string? GetFullPath(string persistentDir, ProfileType type, string hash, string? persistentPath)
     {
-        var workingDir = GetWorkingDir(persistentDir, type, hash);
+        var workingDir = QueryGetWorkingDir(persistentDir, type, hash);
         return GetFullPath(workingDir, persistentPath);
     }
 
     public static Profile Create(string persistentDir, ProfilePersistentInfo persistentEntity)
     {
-        var workingDir = GetWorkingDir(persistentDir, persistentEntity.Type, persistentEntity.Hash);
+        var workingDir = QueryGetWorkingDir(persistentDir, persistentEntity.Type, persistentEntity.Hash);
         var entity = persistentEntity with
         {
             TransferDataFile = GetFullPath(workingDir, persistentEntity.TransferDataFile),
@@ -224,7 +230,9 @@ public abstract class Profile
         return dto.Type switch
         {
             ProfileType.Text => new TextProfile(dto),
-            ProfileType.File => new FileProfile(dto),
+            ProfileType.File => dto.DataName is not null && ImageTool.FileIsImage(dto.DataName)
+                ? new ImageProfile(dto)
+                : new FileProfile(dto),
             ProfileType.Image => new ImageProfile(dto),
             ProfileType.Group => new GroupProfile(dto),
             _ => throw new NotSupportedException($"Unsupported profile type from ProfileDto: {dto.Type}"),

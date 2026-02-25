@@ -66,12 +66,12 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         if (dto.IsDelete.HasValue) existing.IsDeleted = dto.IsDelete.Value;
 
         existing.LastModified = dto.LastModified.Value.UtcDateTime;
+        if (dto.LastAccessed.HasValue) existing.LastAccessed = dto.LastAccessed.Value.UtcDateTime;
         existing.Version = dto.Version.Value;
 
         await _dbContext.SaveChangesAsync(token);
-
-        // Notify clients of profile change
         await NotifyProfileChangeAsync(existing);
+        await DeleteProfileDataIfNeed(existing, token);
 
         return (true, HistoryRecordDto.FromEntity(existing));
     }
@@ -99,6 +99,7 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         string? searchText = null,
         bool? starred = null,
         DateTime? modifiedAfter = null,
+        bool sortByLastAccessed = false,
         CancellationToken token = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
@@ -113,13 +114,17 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         if (after.HasValue)
         {
             var afterUtc = after.Value.ToUniversalTime();
-            query = query.Where(r => r.CreateTime >= afterUtc);
+            query = sortByLastAccessed
+                ? query.Where(r => r.LastAccessed >= afterUtc)
+                : query.Where(r => r.CreateTime >= afterUtc);
         }
 
         if (before.HasValue)
         {
             var beforeUtc = before.Value.ToUniversalTime();
-            query = query.Where(r => r.CreateTime < beforeUtc);
+            query = sortByLastAccessed
+                ? query.Where(r => r.LastAccessed < beforeUtc)
+                : query.Where(r => r.CreateTime < beforeUtc);
         }
 
         if (types != ProfileTypeFilter.All)
@@ -154,8 +159,9 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
             query = query.Where(r => r.LastModified >= modifiedAfterUtc);
         }
 
-        query = query.OrderByDescending(r => r.CreateTime)
-                     .ThenByDescending(r => r.ID);
+        query = sortByLastAccessed
+            ? query.OrderByDescending(r => r.LastAccessed).ThenByDescending(r => r.ID)
+            : query.OrderByDescending(r => r.CreateTime).ThenByDescending(r => r.ID);
 
         var skip = (long)(page - 1) * pageSize;
 
@@ -169,6 +175,8 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
 
     public async Task AddProfile(string userId, Profile profile, CancellationToken token)
     {
+        var entity = await profile.ToHistoryEntity(_persistentDir, userId, token);
+
         await _sem.WaitAsync(token);
         using var guard = new ScopeGuard(() => _sem.Release());
 
@@ -179,11 +187,16 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         if (existing is not null)
         {
             existing.LastAccessed = DateTime.UtcNow;
+            existing.IsDeleted = false;
+            existing.LastModified = DateTime.UtcNow;
+            existing.TransferDataFile = entity.TransferDataFile;
+            existing.FilePaths = entity.FilePaths;
+            existing.Version++;
             await _dbContext.SaveChangesAsync(token);
+            await NotifyProfileChangeAsync(existing);
             return;
         }
 
-        var entity = await profile.ToHistoryEntity(_persistentDir, userId, token);
         await _dbContext.HistoryRecords.AddAsync(entity, token);
         await _dbContext.SaveChangesAsync(token);
         await NotifyProfileChangeAsync(entity);
@@ -200,7 +213,7 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         }
 
         var existing = _dbContext.HistoryRecords
-            .Where(r => r.UserId == userId && r.Type != ProfileType.Text)
+            .Where(r => r.UserId == userId)
             .OrderByDescending(r => r.LastAccessed)
             .AsEnumerable()
             .Where(r => Path.GetFileName(r.TransferDataFile) == fileName && File.Exists(Profile.GetFullPath(_persistentDir, r.Type, r.Hash, r.TransferDataFile)))
@@ -250,13 +263,13 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         return HistoryRecordDto.FromEntity(entity);
     }
 
-    public async Task<Profile?> GetAndResumeProfileAsync(string userId, ProfileType type, string hash, CancellationToken token = default)
+    public async Task<Profile?> GetExistingProfileAsync(string userId, ProfileType type, string hash, CancellationToken token = default)
     {
         await _sem.WaitAsync(token);
         using var guard = new ScopeGuard(() => _sem.Release());
 
         var entity = await Query(userId, type, hash, token);
-        if (entity is null)
+        if (entity is null || entity.IsDeleted)
         {
             return null;
         }
@@ -264,7 +277,6 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         entity.LastModified = DateTime.UtcNow;
         entity.LastAccessed = DateTime.UtcNow;
         entity.Version++;
-        entity.IsDeleted = false;
         await _dbContext.SaveChangesAsync(token);
         await NotifyProfileChangeAsync(entity);
 
@@ -281,7 +293,6 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         using var guard = new ScopeGuard(() => _sem.Release());
 
         var existing = await Query(userId, incoming.Type, incoming.Hash, token);
-        var now = DateTime.UtcNow;
 
         if (existing is not null)
         {
@@ -290,65 +301,77 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
                 newVersion: incoming.Version,
                 oldLastModified: new DateTimeOffset(existing.LastModified),
                 newLastModified: incoming.LastModified);
-
             if (shouldUpdate)
             {
-                existing.Stared = incoming.Starred;
-                existing.Pinned = incoming.Pinned;
-                existing.IsDeleted = incoming.IsDeleted;
-                existing.LastModified = incoming.LastModified.UtcDateTime;
-                existing.Version = incoming.Version;
+                if (existing.IsDeleted && transferFileStream != null)
+                {
+                    await SaveTransferDataAsync(existing, transferFileStream, token);
+                }
 
+                UpdateEntityFields(incoming.ToEntity(userId), existing);
                 await _dbContext.SaveChangesAsync(token);
                 await NotifyProfileChangeAsync(existing);
+                await DeleteProfileDataIfNeed(existing, token);
             }
 
             return HistoryRecordDto.FromEntity(existing);
         }
 
-        var entity = new HistoryRecordEntity
-        {
-            UserId = userId,
-            Type = incoming.Type,
-            Hash = incoming.Hash.ToUpperInvariant(),
-            Text = incoming.Text,
-            Size = incoming.Size,
-            CreateTime = incoming.CreateTime.UtcDateTime,
-            LastAccessed = now,
-            LastModified = (incoming.LastModified == default ? DateTimeOffset.UtcNow : incoming.LastModified).UtcDateTime,
-            Stared = incoming.Starred,
-            Pinned = incoming.Pinned,
-            Version = incoming.Version,
-            IsDeleted = incoming.IsDeleted,
-        };
-
-        var profile = entity.ToProfile(_persistentDir);
+        var entity = incoming.ToEntity(userId);
 
         if (transferFileStream != null)
         {
-            var filePath = await profile.NeedsTransferData(_persistentDir, token)
-                ?? throw new InvalidOperationException("Profile does not support transfer data.");
-            using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                await transferFileStream.CopyToAsync(fs, token);
-            }
-
-            await profile.SetTranseferData(filePath, verify: true, token);
-            entity = await profile.ToHistoryEntity(_persistentDir, userId, token);
+            var profile = await SaveTransferDataAsync(entity, transferFileStream, token);
+            var newEntity = await profile.ToHistoryEntity(_persistentDir, userId, token);
+            UpdateEntityFields(entity, newEntity);
+            entity = newEntity;
         }
 
         await _dbContext.HistoryRecords.AddAsync(entity, token);
         await _dbContext.SaveChangesAsync(token);
-
-        // Notify clients of new profile
         await NotifyProfileChangeAsync(entity);
-
+        await DeleteProfileDataIfNeed(entity, token);
         return HistoryRecordDto.FromEntity(entity);
     }
 
-    private async Task DeleteProfileData(HistoryRecordEntity entity, CancellationToken token)
+    private static void UpdateEntityFields(HistoryRecordEntity srcEntity, HistoryRecordEntity dstEntity)
     {
-        var workingDir = Profile.GetWorkingDir(_persistentDir, entity.Type, entity.Hash);
+        dstEntity.CreateTime = srcEntity.CreateTime;
+        dstEntity.LastAccessed = srcEntity.LastAccessed;
+        dstEntity.LastModified = srcEntity.LastModified;
+        dstEntity.Stared = srcEntity.Stared;
+        dstEntity.Pinned = srcEntity.Pinned;
+        dstEntity.Version = srcEntity.Version;
+        dstEntity.IsDeleted = srcEntity.IsDeleted;
+    }
+
+    private async Task<Profile> SaveTransferDataAsync(HistoryRecordEntity entity, Stream transferFileStream, CancellationToken token)
+    {
+        var profile = entity.ToProfile(_persistentDir);
+        var filePath = await profile.NeedsTransferData(_persistentDir, token)
+            ?? throw new InvalidOperationException("Profile does not support transfer data.");
+        using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await transferFileStream.CopyToAsync(fs, token);
+        }
+
+        await profile.SetTransferData(filePath, verify: true, token);
+        return profile;
+    }
+
+    private Task DeleteProfileDataIfNeed(HistoryRecordEntity entity, CancellationToken token)
+    {
+        return DeleteProfileData(entity, false, token);
+    }
+
+    private async Task DeleteProfileData(HistoryRecordEntity entity, bool force, CancellationToken token)
+    {
+        if (!force && entity.IsDeleted == false)
+        {
+            return;
+        }
+
+        var workingDir = Profile.QueryGetWorkingDir(_persistentDir, entity.Type, entity.Hash);
         await Task.Run(() =>
         {
             if (!string.IsNullOrEmpty(workingDir) && Directory.Exists(workingDir))
@@ -362,22 +385,22 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         }, token);
     }
 
-    public async Task Remove(string userId, ProfileType type, string hash, CancellationToken token = default)
-    {
-        await _sem.WaitAsync(token);
-        using var guard = new ScopeGuard(() => _sem.Release());
+    // public async Task Remove(string userId, ProfileType type, string hash, CancellationToken token = default)
+    // {
+    //     await _sem.WaitAsync(token);
+    //     using var guard = new ScopeGuard(() => _sem.Release());
 
-        var existing = await Query(userId, type, hash, token);
-        if (existing is null)
-        {
-            return;
-        }
+    //     var existing = await Query(userId, type, hash, token);
+    //     if (existing is null)
+    //     {
+    //         return;
+    //     }
 
-        existing.IsDeleted = true;
-        _dbContext.HistoryRecords.Remove(existing);
-        await _dbContext.SaveChangesAsync(token);
-        await DeleteProfileData(existing, token);
-    }
+    //     existing.IsDeleted = true;
+    //     _dbContext.HistoryRecords.Remove(existing);
+    //     await _dbContext.SaveChangesAsync(token);
+    //     await DeleteProfileData(existing, token);
+    // }
 
     public async Task RemoveOutOfDateDeletedRecords(CancellationToken token = default)
     {
@@ -397,7 +420,7 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
 
         foreach (var rec in toDeletes)
         {
-            await DeleteProfileData(rec, token);
+            await DeleteProfileDataIfNeed(rec, token);
         }
     }
 
@@ -416,7 +439,7 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
 
         foreach (var rec in records)
         {
-            await DeleteProfileData(rec, token);
+            await DeleteProfileData(rec, true, token);
         }
 
         return count;
@@ -446,6 +469,7 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         existing.LastModified = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(token);
         await NotifyProfileChangeAsync(existing);
+        await DeleteProfileDataIfNeed(existing, token);
     }
 
     public Task<uint> SetRecordsMaxCount(uint maxCount, CancellationToken token = default)
@@ -453,4 +477,88 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         return _historyManagerHelper.SetRecordsMaxCount(maxCount, token);
     }
     #endregion
+
+    public async Task<HistoryStatisticsDto> GetStatisticsAsync(string userId, CancellationToken token = default)
+    {
+        await _sem.WaitAsync(token);
+        using var guard = new ScopeGuard(() => _sem.Release());
+
+        var records = await _dbContext.HistoryRecords
+            .Where(r => r.UserId == userId)
+            .ToListAsync(token);
+
+        var totalCount = records.Count;
+        var starredCount = records.Count(r => r.Stared);
+        var deletedCount = records.Count(r => r.IsDeleted);
+        var activeCount = records.Count(r => !r.IsDeleted);
+
+        // 计算_persistentDir文件夹的总大小
+        long totalFileSizeBytes = 0;
+        if (Directory.Exists(_persistentDir))
+        {
+            try
+            {
+                var dirInfo = new DirectoryInfo(_persistentDir);
+                totalFileSizeBytes = dirInfo.EnumerateFiles("*", SearchOption.AllDirectories)
+                    .Sum(file => file.Length);
+            }
+            catch { }
+        }
+
+        // 转换为MB，保留两位小数
+        double totalFileSizeMB = totalFileSizeBytes / (1024.0 * 1024.0);
+        totalFileSizeMB = Math.Round(totalFileSizeMB, 2);
+
+        // 如果不是0但是显示为0，则显示为0.01
+        if (totalFileSizeBytes > 0 && totalFileSizeMB == 0)
+        {
+            totalFileSizeMB = 0.01;
+        }
+
+        return new HistoryStatisticsDto
+        {
+            TotalCount = totalCount,
+            StarredCount = starredCount,
+            DeletedCount = deletedCount,
+            ActiveCount = activeCount,
+            TotalFileSizeMB = totalFileSizeMB
+        };
+    }
+
+    public async Task CleanOrphanedFolders(CancellationToken token = default)
+    {
+        if (!Directory.Exists(_persistentDir))
+        {
+            return;
+        }
+
+        await _sem.WaitAsync(token);
+        using var guard = new ScopeGuard(() => _sem.Release());
+
+        var directories = Directory.GetDirectories(_persistentDir);
+        foreach (var directory in directories)
+        {
+            token.ThrowIfCancellationRequested();
+
+            var dirName = Path.GetFileName(directory);
+            var parts = dirName.Split('_', 2);
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+
+            if (!Enum.TryParse<ProfileType>(parts[0], out var type))
+            {
+                continue;
+            }
+
+            var hash = parts[1];
+            var entity = await Query(HARD_CODED_USER_ID, type, hash, token);
+
+            if (entity is null || entity.IsDeleted)
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+    }
 }

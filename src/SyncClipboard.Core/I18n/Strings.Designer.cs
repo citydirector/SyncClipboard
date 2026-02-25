@@ -412,6 +412,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 This item is filtered by content control. Do you want to continue uploading? 的本地化字符串。
+        /// </summary>
+        public static string ContinueUpload {
+            get {
+                return ResourceManager.GetString("ContinueUpload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Copy 的本地化字符串。
         /// </summary>
         public static string Copy {
@@ -444,6 +453,15 @@ namespace SyncClipboard.Core.I18n {
         public static string CopyAppDataFolderPath {
             get {
                 return ResourceManager.GetString("CopyAppDataFolderPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 . Current package is &apos;{0}&apos;, please download manually. 的本地化字符串。
+        /// </summary>
+        public static string CurrentPackageDownloadManually {
+            get {
+                return ResourceManager.GetString("CurrentPackageDownloadManually", resourceCulture);
             }
         }
         
@@ -630,7 +648,7 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Download file 的本地化字符串。
+        ///   查找类似 Downloading 的本地化字符串。
         /// </summary>
         public static string DownloadingFile {
             get {
@@ -756,7 +774,16 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Enable Sync History 的本地化字符串。
+        ///   查找类似 Record local clipboard to history 的本地化字符串。
+        /// </summary>
+        public static string EnableLocalHistory {
+            get {
+                return ResourceManager.GetString("EnableLocalHistory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Sync History 的本地化字符串。
         /// </summary>
         public static string EnableSyncHistory {
             get {
@@ -765,7 +792,7 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 When enabled, automatic deletion (maximum count and retention time) will be disabled locally and follow the server configuration. 的本地化字符串。
+        ///   查找类似 Synced records will follow server settings for automatic deletion. 的本地化字符串。
         /// </summary>
         public static string EnableSyncHistoryDescription {
             get {
@@ -981,15 +1008,6 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 History records will become invalid when users manually delete files 的本地化字符串。
-        /// </summary>
-        public static string HistoryDescription {
-            get {
-                return ResourceManager.GetString("HistoryDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 All 的本地化字符串。
         /// </summary>
         public static string HistoryFilterAll {
@@ -1062,7 +1080,7 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Set to 0 to disable time-based cleanup 的本地化字符串。
+        ///   查找类似 Set to 0 to disable time-based cleanup. Only applies to unsynced records. 的本地化字符串。
         /// </summary>
         public static string HistoryRetentionDescription {
             get {
@@ -1166,6 +1184,24 @@ namespace SyncClipboard.Core.I18n {
         public static string IconMissingDetected {
             get {
                 return ResourceManager.GetString("IconMissingDetected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Ignore &quot;Do Not Sync&quot; suggestions in clipboard 的本地化字符串。
+        /// </summary>
+        public static string IgnoreExcludeForSyncSuggestion {
+            get {
+                return ResourceManager.GetString("IgnoreExcludeForSyncSuggestion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Some apps mark sensitive content in clipboard with a suggestion not to sync. Enable this option to ignore that suggestion 的本地化字符串。
+        /// </summary>
+        public static string IgnoreExcludeForSyncSuggestionDescription {
+            get {
+                return ResourceManager.GetString("IgnoreExcludeForSyncSuggestionDescription", resourceCulture);
             }
         }
         
@@ -1323,6 +1359,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Only applies to unsynced records. Set to 0 for unlimited records. 的本地化字符串。
+        /// </summary>
+        public static string MaxItemCountDescription {
+            get {
+                return ResourceManager.GetString("MaxItemCountDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 New version package has been downloaded 的本地化字符串。
         /// </summary>
         public static string NewVersionDownloaded {
@@ -1346,6 +1391,15 @@ namespace SyncClipboard.Core.I18n {
         public static string None {
             get {
                 return ResourceManager.GetString("None", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Show file sync progress with system notifications 的本地化字符串。
+        /// </summary>
+        public static string NotifyFileSyncProgress {
+            get {
+                return ResourceManager.GetString("NotifyFileSyncProgress", resourceCulture);
             }
         }
         
@@ -1377,7 +1431,7 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Only Show Local 的本地化字符串。
+        ///   查找类似 Show Local Records Only 的本地化字符串。
         /// </summary>
         public static string OnlyShowLocal {
             get {
@@ -1827,6 +1881,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Server time differs significantly from local time. Please synchronize your system clock. 的本地化字符串。
+        /// </summary>
+        public static string ServerTimeError {
+            get {
+                return ResourceManager.GetString("ServerTimeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Settings 的本地化字符串。
         /// </summary>
         public static string Settings {
@@ -1850,6 +1913,15 @@ namespace SyncClipboard.Core.I18n {
         public static string SoftwareUpdateInfo {
             get {
                 return ResourceManager.GetString("SoftwareUpdateInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Sort by Last Accessed 的本地化字符串。
+        /// </summary>
+        public static string SortByLastAccessed {
+            get {
+                return ResourceManager.GetString("SortByLastAccessed", resourceCulture);
             }
         }
         
@@ -2187,6 +2259,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Uploading 的本地化字符串。
+        /// </summary>
+        public static string UploadingFile {
+            get {
+                return ResourceManager.GetString("UploadingFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Upload Once Immediately 的本地化字符串。
         /// </summary>
         public static string UploadOnce {
@@ -2201,6 +2282,15 @@ namespace SyncClipboard.Core.I18n {
         public static string UploadService {
             get {
                 return ResourceManager.GetString("UploadService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Upload Warning 的本地化字符串。
+        /// </summary>
+        public static string UploadWarning {
+            get {
+                return ResourceManager.GetString("UploadWarning", resourceCulture);
             }
         }
         

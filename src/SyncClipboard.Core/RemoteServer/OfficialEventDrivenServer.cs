@@ -32,7 +32,6 @@ public sealed class OfficialEventDrivenServer : IRemoteClipboardServer, IOfficia
         _testAliveHelper = new TestAliveHelper(TestConnectionAsync);
         _testAliveHelper.TestSuccessed += OnTestAliveSuccessed;
         _serverHelper.ExceptionOccurred += OnServerHelperExceptionOccurred;
-        _testAliveHelper.Restart();
         _serverAdapter.ServerDisconnected += ServerDisconnected;
         _serverAdapter.ServerConnected += ServerConnected;
 
@@ -129,7 +128,7 @@ public sealed class OfficialEventDrivenServer : IRemoteClipboardServer, IOfficia
 
     private void OnHistoryChanged(HistoryRecordDto historyRecordDto)
     {
-        _logger.Write($"[EVENT] Remote history changed: {historyRecordDto.Type}/{historyRecordDto.Hash}");
+        // _logger.Write($"[EVENT] Remote history changed: {historyRecordDto.Type}/{historyRecordDto.Hash}");
         HistoryChanged?.Invoke(historyRecordDto);
     }
 
@@ -158,14 +157,23 @@ public sealed class OfficialEventDrivenServer : IRemoteClipboardServer, IOfficia
 
     public void OnSyncConfigChanged(SyncConfig syncConfig)
     {
+        try
+        {
+            _serverAdapter.ApplyConfig();
+            _serverHelper.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            SetErrorStatus("Failed to apply config", ex);
+        }
         _testAliveHelper.Restart();
     }
 
-    public async Task SetProfileAsync(Profile profile, CancellationToken cancellationToken = default)
+    public async Task SetProfileAsync(Profile profile, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
-        await _historyTransferQueue.Upload(profile, null, cancellationToken);
-        var hash = await profile.GetHash(cancellationToken);
-        await _serverAdapter.SetCurrentProfile(profile.Type, hash, cancellationToken);
+        await _historyTransferQueue.Upload(profile, progress, cancellationToken);
+        var dto = await profile.ToProfileDto(cancellationToken);
+        await _serverAdapter.SetCurrentProfile(dto, cancellationToken);
     }
 
     public Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default)
@@ -213,13 +221,13 @@ public sealed class OfficialEventDrivenServer : IRemoteClipboardServer, IOfficia
         return syncServer.GetHistoryByProfileIdAsync(profileId, cancellationToken);
     }
 
-    public Task<IEnumerable<HistoryRecordDto>> GetHistoryAsync(int page = 1, long? before = null, long? after = null, long? modifiedAfter = null, ProfileTypeFilter types = ProfileTypeFilter.All, string? searchText = null, bool? starred = null)
+    public Task<IEnumerable<HistoryRecordDto>> GetHistoryAsync(int page = 1, DateTimeOffset? before = null, DateTimeOffset? after = null, DateTimeOffset? modifiedAfter = null, ProfileTypeFilter types = ProfileTypeFilter.All, string? searchText = null, bool? starred = null, bool sortByLastAccessed = false)
     {
         if (_serverAdapter is not IOfficialSyncServer syncServer)
         {
             throw new NotSupportedException("The current server adapter does not support history sync.");
         }
-        return syncServer.GetHistoryAsync(page, before, after, modifiedAfter, types, searchText, starred);
+        return syncServer.GetHistoryAsync(page, before, after, modifiedAfter, types, searchText, starred, sortByLastAccessed);
     }
 
     public Task DownloadHistoryDataAsync(string profileId, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)

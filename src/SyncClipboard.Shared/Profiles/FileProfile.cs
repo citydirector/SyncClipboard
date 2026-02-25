@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using SyncClipboard.Shared.Profiles.Models;
 using SyncClipboard.Shared.Utilities;
 
@@ -52,10 +51,6 @@ public class FileProfile : Profile
         Hash = string.IsNullOrEmpty(hash) ? null : hash;
     }
 
-    public FileProfile(ClipboardProfileDTO profileDTO) : this(null, profileDTO.File, profileDTO.Clipboard)
-    {
-    }
-
     public FileProfile(ProfileDto dto) : this(null, dto.DataName, dto.Hash)
     {
         Size = dto.Size;
@@ -81,8 +76,6 @@ public class FileProfile : Profile
         Size = fileInfo.Length;
         return Task.CompletedTask;
     }
-
-    public override async Task<ClipboardProfileDTO> ToDto(CancellationToken token) => new ClipboardProfileDTO(FileName, await GetHash(token), Type);
 
     public override async Task<ProfileDto> ToProfileDto(CancellationToken token)
     {
@@ -129,7 +122,7 @@ public class FileProfile : Profile
         throw new FileNotFoundException("File not found for transfer", FullPath);
     }
 
-    public override async Task SetTranseferData(string path, bool verify, CancellationToken token)
+    public override async Task SetTransferData(string path, bool verify, CancellationToken token)
     {
         if (!File.Exists(path))
         {
@@ -144,7 +137,7 @@ public class FileProfile : Profile
         }
 
         var hash = await GetSHA256HashFromFile(path, token);
-        if (Hash is not null && hash != Hash)
+        if (Hash is not null && string.Equals(hash, Hash, StringComparison.OrdinalIgnoreCase) is false)
         {
             throw new InvalidDataException("Hash mismatch for the provided file.");
         }
@@ -160,9 +153,9 @@ public class FileProfile : Profile
             return;
         }
 
-        await SetTranseferData(path, true, token);
+        await SetTransferData(path, true, token);
 
-        var workingDir = GetWorkingDir(persistentDir, Type, Hash!);
+        var workingDir = CreateWorkingDir(persistentDir, Type, Hash!);
         var persistentPath = GetPersistentPath(workingDir, path);
 
         if (Path.IsPathRooted(persistentPath!) is false)
@@ -194,7 +187,7 @@ public class FileProfile : Profile
         try
         {
             var hash = await GetSHA256HashFromFile(FullPath, token);
-            return hash == Hash;
+            return string.Equals(hash, Hash, StringComparison.OrdinalIgnoreCase);
         }
         catch when (token.IsCancellationRequested is false)
         {
@@ -211,7 +204,7 @@ public class FileProfile : Profile
 
         if (FullPath is null)
         {
-            return Path.Combine(GetWorkingDir(persistentDir, Type, await GetHash(token)), FileName);
+            return Path.Combine(CreateWorkingDir(persistentDir, Type, await GetHash(token)), FileName);
         }
 
         return FullPath;
@@ -224,7 +217,7 @@ public class FileProfile : Profile
             throw new Exception("Cannot persist a FileProfile with no data.");
         }
 
-        var workingDir = GetWorkingDir(persistentDir, Type, await GetHash(token));
+        var workingDir = QueryGetWorkingDir(persistentDir, Type, await GetHash(token));
         var path = GetPersistentPath(workingDir, FullPath);
         return new ProfilePersistentInfo
         {
@@ -249,5 +242,16 @@ public class FileProfile : Profile
             Text = FullPath,
             FilePaths = [FullPath],
         });
+    }
+
+    public override void CopyTo(Profile target)
+    {
+        if (target is not FileProfile fileTarget)
+            return;
+
+        fileTarget.FullPath = FullPath;
+        fileTarget.FileName = FileName;
+        fileTarget.Hash = Hash;
+        fileTarget.Size = Size;
     }
 }

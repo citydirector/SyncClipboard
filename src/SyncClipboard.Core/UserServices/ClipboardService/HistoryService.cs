@@ -22,7 +22,9 @@ public class HistoryService : ClipboardHander
     private readonly RemoteClipboardServerFactory remoteServerFactory;
     private readonly HistorySyncer historySyncer;
     private readonly ITrayIcon trayIcon;
-    private bool _enableSyncHistory;
+    private readonly HistoryTransferQueue historyTransferQueue;
+    private HistoryConfig _historyConfig;
+    protected override bool EnableToggleMenuItem => false;
 
     public HistoryService(
         [FromKeyedServices(Env.RuntimeConfigName)] ConfigBase runtimeConfig,
@@ -30,7 +32,8 @@ public class HistoryService : ClipboardHander
         ConfigManager configManager,
         RemoteClipboardServerFactory remoteServerFactory,
         HistorySyncer historySyncer,
-        ITrayIcon trayIcon)
+        ITrayIcon trayIcon,
+        HistoryTransferQueue historyTransferQueue)
     {
         this.runTimeConfig = runtimeConfig;
         this.historyManager = historyManager;
@@ -38,7 +41,8 @@ public class HistoryService : ClipboardHander
         this.remoteServerFactory = remoteServerFactory;
         this.historySyncer = historySyncer;
         this.trayIcon = trayIcon;
-        _enableSyncHistory = configManager.GetConfig<HistoryConfig>().EnableSyncHistory;
+        this.historyTransferQueue = historyTransferQueue;
+        _historyConfig = configManager.GetConfig<HistoryConfig>();
         configManager.ListenConfig<HistoryConfig>(OnHistoryConfigChanged);
         _syncingTask = new SingletonTask(SyncTaskImpl);
     }
@@ -89,17 +93,12 @@ public class HistoryService : ClipboardHander
         _currentServer = currentServer;
         SetRuntimeConfig();
 
-        if (currentServer is not IOfficialSyncServer historySyncServer)
+        _historySyncServer = currentServer as IOfficialSyncServer;
+        if (_historySyncServer is not null)
         {
-            trayIcon.SetStatusString(SERVICE_NAME, "Syncing Disabled.", false);
-            return;
+            _historySyncServer.HistoryChanged += OnRemoteHistoryChanged;
+            _currentServer.PollStatusEvent += OnPollStatusChanged;
         }
-
-        _historySyncServer = historySyncServer;
-        _historySyncServer.HistoryChanged += OnRemoteHistoryChanged;
-
-        // 订阅服务器状态变化事件，用于检测重连
-        _currentServer.PollStatusEvent += OnPollStatusChanged;
 
         _lastSyncTime = null;
         TriggerSyncTask();
@@ -109,7 +108,7 @@ public class HistoryService : ClipboardHander
     {
         var runtimeHistoryConfig = new RuntimeHistoryConfig
         {
-            EnableSyncHistory = _currentServer is IOfficialSyncServer && _enableSyncHistory
+            EnableSyncHistory = _currentServer is IOfficialSyncServer && _historyConfig.EnableSyncHistory && _historyConfig.EnableHistory,
         };
 
         runTimeConfig.SetConfig(runtimeHistoryConfig);
@@ -122,20 +121,15 @@ public class HistoryService : ClipboardHander
         {
             TriggerSyncTask();
         }
-        if (e.Status == PollStatus.StoppedDueToNetworkIssues && _enableSyncHistory)
+        if (e.Status == PollStatus.StoppedDueToNetworkIssues && runTimeConfig.GetConfig<RuntimeHistoryConfig>().EnableSyncHistory)
         {
-            trayIcon.SetStatusString(SERVICE_NAME, $"History synchronization failed. Last sync time: {_lastSyncTime?.LocalDateTime:g}", error: true);
+            trayIcon.SetStatusString(SERVICE_NAME, $"History synchronization failed with error: {e.Message}", error: true);
             _syncingTask.Cancel();
         }
     }
 
     private async void TriggerSyncTask()
     {
-        if (!_enableSyncHistory)
-        {
-            return;
-        }
-
         try
         {
             await _syncingTask.Run();
@@ -146,36 +140,55 @@ public class HistoryService : ClipboardHander
             {
                 return;
             }
-            trayIcon.SetStatusString(SERVICE_NAME, $"History synchronization failed. Last sync time: {_lastSyncTime?.LocalDateTime:g}", error: true);
+            trayIcon.SetStatusString(SERVICE_NAME, $"History synchronization failed with error: {ex.Message}", error: true);
             Logger?.Write($"[{LOG_TAG}] 同步所有历史记录失败: {ex.Message}");
         }
     }
 
     private void OnHistoryConfigChanged(HistoryConfig cfg)
     {
-        var newEnableSyncHistory = cfg.EnableSyncHistory && SwitchOn;
-        if (newEnableSyncHistory == _enableSyncHistory)
+        if (_historyConfig == cfg)
         {
             return;
         }
 
-        _enableSyncHistory = newEnableSyncHistory;
+        _historyConfig = cfg;
         SetRuntimeConfig();
-        if (!_enableSyncHistory)
-        {
-            _syncingTask.Cancel();
-            trayIcon.SetStatusString(SERVICE_NAME, "Syncing Disabled.", false);
-        }
-        else
-        {
-            TriggerSyncTask();
-        }
+        TriggerSyncTask();
+    }
+
+    public Task SyncAllAsync()
+    {
+        _lastSyncTime = null;
+        TriggerSyncTask();
+        return Task.CompletedTask;
     }
 
     private async Task SyncTaskImpl(CancellationToken token)
     {
-        trayIcon.SetStatusString(SERVICE_NAME, "Synchronizing history...");
-        await historySyncer.SyncAllAsync(_lastSyncTime?.LocalDateTime, token).ConfigureAwait(false);
+        if (runTimeConfig.GetConfig<RuntimeHistoryConfig>().EnableSyncHistory is false || _historySyncServer is null)
+        {
+            trayIcon.SetStatusString(SERVICE_NAME, "Organizing local history records...", false);
+            await historySyncer.RemoveRemoteHistorys(token).ConfigureAwait(false);
+            trayIcon.SetStatusString(SERVICE_NAME, "Syncing Disabled.", false);
+            return;
+        }
+
+        var serverTime = await _historySyncServer.GetServerTimeAsync(token).ConfigureAwait(false);
+        var timeDifference = (DateTimeOffset.Now - serverTime).Duration().TotalMinutes;
+        if (timeDifference > 5)
+        {
+            throw new InvalidOperationException(I18n.Strings.ServerTimeError);
+        }
+
+        historyManager.EnableCleanup = false;
+        using (new ScopeGuard(() => historyManager.EnableCleanup = true))
+        {
+            trayIcon.SetStatusString(SERVICE_NAME, "Synchronizing history...");
+            historyTransferQueue.ResumeQueue();
+            await historySyncer.SyncAllAsync(_lastSyncTime?.LocalDateTime, token).ConfigureAwait(false);
+        }
+
         while (!token.IsCancellationRequested)
         {
             await SaveServerTime(token).ConfigureAwait(false);
@@ -199,15 +212,23 @@ public class HistoryService : ClipboardHander
 
     private async void OnRemoteHistoryChanged(HistoryRecordDto historyRecordDto)
     {
-        if (!_enableSyncHistory)
+        if (runTimeConfig.GetConfig<RuntimeHistoryConfig>().EnableSyncHistory is false)
         {
             return;
         }
 
         try
         {
+            var token = CancellationToken.None;
             var record = historyRecordDto.ToHistoryRecord();
-            await historyManager.PersistServerSyncedAsync(record, CancellationToken.None);
+            record = await historyManager.PersistServerSyncedAsync(record, token);
+
+            if (record.IsLocalFileReady)
+            {
+                return;
+            }
+            var profile = record.ToProfile();
+            await historyTransferQueue.EnqueueDownload(profile, forceResume: false, token);
         }
         catch (Exception ex)
         {
@@ -233,6 +254,19 @@ public class HistoryService : ClipboardHander
             return;
         }
 
-        await historyManager.AddLocalProfile(profile, token);
+        if (!configManager.GetConfig<SyncConfig>().IgnoreExcludeForSyncSuggestion)
+        {
+            if (clipboardMetaInfomation.ExcludeForSync ?? false)
+            {
+                return;
+            }
+
+            if (clipboardMetaInfomation.ExcludeForHistory ?? false)
+            {
+                return;
+            }
+        }
+
+        await historyManager.AddLocalProfile(profile, token: token);
     }
 }
