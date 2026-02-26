@@ -53,23 +53,24 @@ Hash = SHA256(UTF8(CombinedString))
 - 每条 entry 的 hash 输入字符串以`\0`结尾
 
 #### 3.4 哈希计算
-- 将所有 entry 按序拼接成一个字符串，UTF8 编码后计算 SHA256
+- 将所有 entry hash 输入字符串按序拼接成一个字符串，UTF8 编码后计算 SHA256
 
 ### 示例
 
 假设有以下文件结构：
 ```
 folder/
-  ├── a.txt (100 bytes, hash: abc123...)
+  ├── a.txt (100 bytes, hash: abc...123)
   └── subdir/
-      └── b.txt (200 bytes, hash: def456...)
+      └── b.txt (200 bytes, hash: def...456)
 ```
 
-最终SHA256的输入字符串为（这里将`\0`显示为换行）：
+排序、拼接所有 Entry hash 输入字符串，得到最终的输入字符串（这里将`\0`显示为换行）：
 ```
-folder/
-folder/a.txt|100|ABC...123
-folder/subdir/
-folder/subdir/b.txt|200|DEF...456
+D|folder/
+F|folder/a.txt|100|ABC...123
+D|folder/subdir/
+F|folder/subdir/b.txt|200|DEF...456
 
 ```
+将上述字符串使用UTF8编码转换为 byte 数组，对此 byte 数组进行 SHA256 计算得到最终的hash
