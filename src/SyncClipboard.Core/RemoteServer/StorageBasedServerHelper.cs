@@ -11,22 +11,14 @@ using System.Text.Json;
 
 namespace SyncClipboard.Core.RemoteServer;
 
-internal class StorageBasedServerHelper
+internal class StorageBasedServerHelper(IServiceProvider sp, IStorageBasedServerAdapter serverAdapter)
 {
-    private readonly IStorageBasedServerAdapter _serverAdapter;
-    private readonly ILogger _logger;
-    private readonly ITrayIcon _trayIcon;
-    private readonly IProfileEnv _profileEnv;
+    private readonly IStorageBasedServerAdapter _serverAdapter = serverAdapter;
+    private readonly ILogger _logger = sp.GetRequiredService<ILogger>();
+    private readonly ITrayIcon _trayIcon = sp.GetRequiredService<ITrayIcon>();
+    private readonly IProfileEnv _profileEnv = sp.GetRequiredService<IProfileEnv>();
 
     public event Action? ExceptionOccurred;
-
-    public StorageBasedServerHelper(IServiceProvider sp, IStorageBasedServerAdapter serverAdapter)
-    {
-        _serverAdapter = serverAdapter;
-        _logger = sp.GetRequiredService<ILogger>();
-        _trayIcon = sp.GetRequiredService<ITrayIcon>();
-        _profileEnv = sp.GetRequiredService<IProfileEnv>();
-    }
 
     public async void InitializeAsync()
     {
