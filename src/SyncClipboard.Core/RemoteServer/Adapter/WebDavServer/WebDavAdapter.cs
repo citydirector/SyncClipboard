@@ -81,14 +81,14 @@ public sealed class WebDavAdapter : IServerAdapter<WebDavConfig>, IStorageBasedS
 
     public async Task UploadFileAsync(string fileName, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
-        var remotePath = $"{RemoteFileFolder}/{fileName}";
+        var remotePath = BuildRemoteFilePath(fileName);
         await _webDav.PutFile(remotePath, localPath, progress, cancellationToken);
         _logger.Write($"[WEBDAV] Upload completed for {fileName}");
     }
 
     public async Task DownloadFileAsync(string fileName, string localPath, IProgress<HttpDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
-        var remotePath = $"{RemoteFileFolder}/{fileName}";
+        var remotePath = BuildRemoteFilePath(fileName);
 
         var directory = Path.GetDirectoryName(localPath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -110,6 +110,17 @@ public sealed class WebDavAdapter : IServerAdapter<WebDavConfig>, IStorageBasedS
             throw; // 重新抛出异常，通知上层服务
         }
         _logger.Write($"[WEBDAV] Downloaded {fileName} to {localPath}");
+    }
+
+    private static string BuildRemoteFilePath(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+        {
+            throw new ArgumentException("fileName cannot be null or empty", nameof(fileName));
+        }
+
+        var encodedFileName = Uri.EscapeDataString(fileName);
+        return $"{RemoteFileFolder}/{encodedFileName}";
     }
 
     public async Task CleanupTempFilesAsync(CancellationToken token = default)
