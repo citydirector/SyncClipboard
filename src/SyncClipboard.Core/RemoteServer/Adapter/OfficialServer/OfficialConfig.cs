@@ -1,14 +1,15 @@
 using SyncClipboard.Core.Attributes;
 using SyncClipboard.Core.Utilities;
+using System.Text.Json.Serialization;
 
 namespace SyncClipboard.Core.RemoteServer.Adapter.OfficialServer;
 
-[AccountConfigType(ConfigTypeName)]
+[AccountConfigType(ConfigTypeName, Priority = 1)]
 public record OfficialConfig : IAdapterConfig<OfficialConfig>
 {
     public const string ConfigTypeName = "SyncClipboard";
 
-    [PropertyDisplay("ServerAddress")]
+    [PropertyDisplay("ServerAddress", Description = "SyncClipboardServerAddressDescription")]
     public string RemoteURL { get; set; } = string.Empty;
 
     [UserName]
@@ -21,5 +22,8 @@ public record OfficialConfig : IAdapterConfig<OfficialConfig>
     [PropertyDisplay("DeleteServerTemporaryFileAutoly", Description = "DeletePreviousFilesDescription")]
     public bool DeletePreviousFilesOnPush { get; set; } = true;
 
-    public string DisplayIdentify => $"{UserName} - {StringHelper.GetHostFromUrl(RemoteURL)} - {ConfigTypeName}";
+    public string CustomName { get; set; } = string.Empty;
+
+    [JsonIgnore]
+    public string NameSuggestion => $"{UserName} - {StringHelper.GetHostFromUrl(RemoteURL)} - {ConfigTypeName}";
 }

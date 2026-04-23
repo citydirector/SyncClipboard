@@ -82,11 +82,6 @@
                 <ToggleSwitch OnContent="{x:Static i18n:Strings.On}" OffContent="{x:Static i18n:Strings.Off}" IsChecked="{Binding SyncEnable, Mode=TwoWay}" />
             </ui:SettingsExpander.Footer>
             <ui:SettingsExpander.Items>
-                <ui:SettingsExpanderItem Content="{x:Static i18n:Strings.TrustInsecureCertificate}">
-                    <ui:SettingsExpanderItem.Footer>
-                        <ToggleSwitch OnContent="{x:Static i18n:Strings.On}" OffContent="{x:Static i18n:Strings.Off}" IsChecked="{Binding TrustInsecureCertificate, Mode=TwoWay}" />
-                    </ui:SettingsExpanderItem.Footer>
-                </ui:SettingsExpanderItem>
                 <ui:SettingsExpanderItem Content="{x:Static i18n:Strings.QueryInterval}" IsVisible="{Binding ShowQueryInterval}">
                     <ui:SettingsExpanderItem.Footer>
                         <NumericUpDown Minimum="0"
@@ -132,6 +127,32 @@
                                          IsClickEnabled="True"
                                          Command="{Binding OpenSyncContentControlPageCommand}"
                                          Content="{x:Static i18n:Strings.SyncContentControl}" />
+                <ui:SettingsExpanderItem ActionIconSource="{StaticResource GoIcon}"
+                                         IsClickEnabled="True"
+                                         Command="{Binding OpenClipboardAcquisitionRulesPageCommand}"
+                                         Content="{x:Static i18n:Strings.ClipboardAcquisitionRules}" />
+            </ui:SettingsExpander.Items>
+        </ui:SettingsExpander>
+        <ui:SettingsExpander Header="{x:Static i18n:Strings.LocalClipboardSource}" IsExpanded="True" IsVisible="{Binding IsLinux}">
+            <ui:SettingsExpander.IconSource>
+                <ui:FontIconSource Glyph="&#xE71C;" FontFamily="{StaticResource SymbolThemeFontFamily}" />
+            </ui:SettingsExpander.IconSource>
+            <ui:SettingsExpander.Items>
+                <ui:SettingsExpanderItem Content="Avalonia">
+                    <ui:SettingsExpanderItem.Footer>
+                        <CheckBox IsChecked="{Binding AvaloniaEnabled, Mode=TwoWay}" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+                <ui:SettingsExpanderItem Content="xclip">
+                    <ui:SettingsExpanderItem.Footer>
+                        <CheckBox IsChecked="{Binding XClipEnabled, Mode=TwoWay}" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
+                <ui:SettingsExpanderItem Content="wl-clipboard">
+                    <ui:SettingsExpanderItem.Footer>
+                        <CheckBox IsChecked="{Binding WlClipboardEnabled, Mode=TwoWay}" />
+                    </ui:SettingsExpanderItem.Footer>
+                </ui:SettingsExpanderItem>
             </ui:SettingsExpander.Items>
         </ui:SettingsExpander>
     </StackPanel>

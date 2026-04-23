@@ -824,14 +824,11 @@ This operation cannot be undone.</value>
   <data name="ServerAddress" xml:space="preserve">
     <value>Server Address</value>
   </data>
-  <data name="ServerAddressDescription" xml:space="preserve">
-    <value>Full URL address of the WebDAV server</value>
+  <data name="WebDAVServerAddressDescription" xml:space="preserve">
+    <value>Set the format to "http(s)://host:port/webdav_api_path" and specify the path to a dedicated sync folder</value>
   </data>
-  <data name="UserNameDescription" xml:space="preserve">
-    <value>Username for logging into the WebDAV server</value>
-  </data>
-  <data name="PasswordDescription" xml:space="preserve">
-    <value>Password for logging into the WebDAV server</value>
+  <data name="SyncClipboardServerAddressDescription" xml:space="preserve">
+    <value>Set the format to "http(s)://host:port". For built-in server, set the host to "127.0.0.1"</value>
   </data>
   <data name="TrustInsecureCertificateDescription" xml:space="preserve">
     <value>Whether to trust self-signed or invalid SSL certificates</value>
@@ -890,8 +887,17 @@ This operation cannot be undone.</value>
   <data name="CancelUpload" xml:space="preserve">
     <value>Cancel Upload</value>
   </data>
+  <data name="ShowDetail" xml:space="preserve">
+    <value>Show Details</value>
+  </data>
+  <data name="FontScale" xml:space="preserve">
+    <value>Font Scale</value>
+  </data>
   <data name="SortByLastAccessed" xml:space="preserve">
     <value>Sort by Last Accessed</value>
+  </data>
+  <data name="Characters" xml:space="preserve">
+    <value>chars</value>
   </data>
   <data name="UploadWarning" xml:space="preserve">
     <value>Upload Warning</value>
@@ -901,5 +907,59 @@ This operation cannot be undone.</value>
   </data>
   <data name="ServerTimeError" xml:space="preserve">
     <value>Server time differs significantly from local time. Please synchronize your system clock.</value>
+  </data>
+  <data name="S3ServerAddressDescription" xml:space="preserve">
+    <value>Optional. Set to a custom endpoint such as "https://s3.us-east-1.amazonaws.com" or an S3-compatible OSS endpoint.</value>
+  </data>
+  <data name="S3Region" xml:space="preserve">
+    <value>Region</value>
+  </data>
+  <data name="S3RegionDescription" xml:space="preserve">
+    <value>AWS region name used for signing requests, such as "us-east-1".</value>
+  </data>
+  <data name="S3BucketName" xml:space="preserve">
+    <value>Bucket Name</value>
+  </data>
+  <data name="S3BucketNameDescription" xml:space="preserve">
+    <value>S3 bucket used to store SyncClipboard metadata and files.</value>
+  </data>
+  <data name="S3ObjectPrefix" xml:space="preserve">
+    <value>Object Prefix</value>
+  </data>
+  <data name="S3ObjectPrefixDescription" xml:space="preserve">
+    <value>Optional folder-like prefix inside the bucket, e.g. "syncclipboard".</value>
+  </data>
+  <data name="S3ForcePathStyle" xml:space="preserve">
+    <value>Force Path-Style Addressing</value>
+  </data>
+  <data name="S3ForcePathStyleDescription" xml:space="preserve">
+    <value>Enable for S3-compatible endpoints that do not support virtual-host style buckets.</value>
+  </data>
+  <data name="S3AccessKeyId" xml:space="preserve">
+    <value>Access Key ID</value>
+  </data>
+  <data name="S3SecretAccessKey" xml:space="preserve">
+    <value>Secret Access Key</value>
+  </data>
+  <data name="CustomName" xml:space="preserve">
+    <value>Custom Name</value>
+  </data>
+  <data name="CustomNameDescription" xml:space="preserve">
+    <value>Optional. If set, this name will be displayed instead of the auto-generated identifier.</value>
+  </data>
+  <data name="LocalClipboardSource" xml:space="preserve">
+    <value>Local Clipboard Source</value>
+  </data>
+  <data name="ClipboardAcquisitionRules" xml:space="preserve">
+    <value>Local Clipboard Acquisition Rules</value>
+  </data>
+  <data name="TextImageCoexistRule" xml:space="preserve">
+    <value>When text and image coexist</value>
+  </data>
+  <data name="AcquireText" xml:space="preserve">
+    <value>Acquire Text</value>
+  </data>
+  <data name="AcquireImage" xml:space="preserve">
+    <value>Acquire Image</value>
   </data>
 </root>

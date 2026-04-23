@@ -19,7 +19,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.checkout-repo }}
           ref: ${{ inputs.checkout-ref }}
@@ -31,7 +31,7 @@ jobs:
 
       # Install the .NET workload
       - name: Install .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: | 
             10.0.x
@@ -46,7 +46,7 @@ jobs:
       - name: Select Xcode Version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.0'
+          xcode-version: '26.3'
 
       # - name
           #  dotnet publish SyncClipboard.Desktop.MacOS/SyncClipboard.Desktop.MacOS.csproj -r osx-x64 -c Release
@@ -72,7 +72,7 @@ jobs:
         working-directory: ./build/macos
 
       - name: Package dmg
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 10
@@ -100,7 +100,7 @@ jobs:
         working-directory: ./build/macos
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "SyncClipboard_macos_${{ matrix.cpu }}.dmg"
           path: "build/macos/SyncClipboard_macos_${{ matrix.cpu }}.dmg"

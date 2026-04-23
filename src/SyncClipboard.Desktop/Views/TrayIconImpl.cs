@@ -15,12 +15,10 @@ public abstract class TrayIconImpl : TrayIconBase<WindowIcon>
 
     protected override WindowIcon DefaultInactiveIcon => _DefaultInactiveIcon;
     protected override WindowIcon ErrorInactiveIcon => _ErrorInactiveIcon;
-    protected override int MaxToolTipLenth => 255;
+    protected override int MaxToolTipLenth => 1024;
 
     private readonly ServiceStatusViewModel _serviceStatusViewModel;
     protected override ServiceStatusViewModel? ServiceStatusViewModel => _serviceStatusViewModel;
-
-    public override event Action? MainWindowWakedUp;
 
     private readonly TrayIcon _trayIcon;
 
@@ -30,7 +28,7 @@ public abstract class TrayIconImpl : TrayIconBase<WindowIcon>
         var trayIcon = icons?[0];
         ArgumentNullException.ThrowIfNull(trayIcon, nameof(trayIcon));
         _trayIcon = trayIcon;
-        _trayIcon.Command = new RelayCommand(() => MainWindowWakedUp?.Invoke());
+        _trayIcon.Command = new RelayCommand(OnRawLeftClicked);
         _trayIcon.ToolTipText = string.Empty;
         _serviceStatusViewModel = serviceStatusViewModel;
     }

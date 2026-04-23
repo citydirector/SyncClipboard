@@ -46,6 +46,24 @@
                 </StackPanel>
             </DataTemplate>
             <local:ClipboardViewerTemplateSelector x:Key="clipboardTemplateSelector" Normal="{StaticResource normalTemplate}" Image="{StaticResource imageTemplate}" />
+            <local:FontScaleProxy x:Key="FontScaleProxy" />
+            <Flyout x:Key="FontScaleFlyout" Opening="FontScaleFlyout_Opening">
+                <StackPanel Orientation="Horizontal" Padding="4" Spacing="4">
+                    <TextBlock VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <NumberBox Minimum="25"
+                               Maximum="400"
+                               SmallChange="5"
+                               LargeChange="25"
+                               SpinButtonPlacementMode="Inline"
+                               Width="200"
+                               AcceptsExpression="False"
+                               ValueChanged="FontScaleNumberBox_ValueChanged" />
+                    <TextBlock Text="%"
+                               VerticalAlignment="Center"
+                               Margin="4,0,0,0" />
+                </StackPanel>
+            </Flyout>
         </Grid.Resources>
         <Grid x:Name="_TitleBar" Grid.Row="0">
             <SelectorBar x:Name="_FilterSelectorBar"
@@ -64,7 +82,7 @@
                 <ToggleButton Style="{StaticResource IconToggleButtonStyle}" ToolTipService.ToolTip="{x:Bind i18n:Strings.WindowTopmost}" IsChecked="{x:Bind _viewModel.IsTopmost, Mode=TwoWay}">
                     <FontIcon Glyph="&#xE840;" />
                 </ToggleButton>
-                <Button Width="24" Height="24" VerticalAlignment="Center">
+                <Button x:Name="_MenuButton" Width="24" Height="24" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE10C;" />
                     <Button.Flyout>
                         <MenuFlyout Placement="Bottom">
@@ -73,6 +91,9 @@
                             <ToggleMenuFlyoutItem Text="{x:Bind i18n:Strings.ShowSyncStatus}" IsChecked="{x:Bind _viewModel.ShowSyncState, Mode=TwoWay}" />
                             <!--<ToggleMenuFlyoutItem Text="{x:Bind i18n:Strings.OnlyShowLocal}" IsChecked="{x:Bind _viewModel.OnlyShowLocal, Mode=TwoWay}" />-->
                             <ToggleMenuFlyoutItem Text="{x:Bind i18n:Strings.SortByLastAccessed}" IsChecked="{x:Bind _viewModel.SortByLastAccessed, Mode=TwoWay}" />
+                            <ToggleMenuFlyoutItem Text="{x:Bind i18n:Strings.ShowDetail}" IsChecked="{x:Bind _viewModel.ShowDetail, Mode=TwoWay}" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="{x:Bind i18n:Strings.FontScale}" Click="FontScaleMenuItem_Click" />
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>
@@ -145,13 +166,19 @@
                             <Border Grid.Column="0" Height="40" VerticalAlignment="Top">
                                 <FontIcon VerticalAlignment="Center" Glyph="{x:Bind vc:ConvertMethod.ProfileTypeToFontIcon(Type)}" FontSize="16" />
                             </Border>
-                            <ContentControl Grid.Column="1"
-                                            Padding="8,8,0,8"
-                                            HorizontalAlignment="Left"
-                                            VerticalAlignment="Center"
-                                            FontSize="12"
-                                            Content="{x:Bind}"
-                                            ContentTemplateSelector="{StaticResource clipboardTemplateSelector}" />
+                            <StackPanel Grid.Column="1" Orientation="Vertical">
+                                <ContentControl Padding="8,8,0,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                FontSize="{Binding FontSize, Source={StaticResource FontScaleProxy}}"
+                                                Content="{x:Bind}"
+                                                ContentTemplateSelector="{StaticResource clipboardTemplateSelector}" />
+                                <TextBlock Padding="8,2,0,6"
+                                           FontSize="{Binding FontSize, Source={StaticResource FontScaleProxy}}"
+                                           Opacity="0.5"
+                                           Text="{x:Bind DetailText, Mode=OneWay}"
+                                           Loaded="DetailTextBlockLoaded" />
+                            </StackPanel>
                             <StackPanel Grid.Column="2" Margin="5,0,0,0" Orientation="Horizontal">
                                 <Button Visibility="{x:Bind vc:ConvertMethod.BoolToVisibility(HasError), Mode=OneWay}">
                                     <Button.Flyout>

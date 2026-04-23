@@ -45,6 +45,7 @@ public class Web
         services.AddSwaggerGen(options =>
         {
             options.OperationFilter<MultipartFormDataOperationFilter>();
+            options.OperationFilter<QueryHistoryOperationFilter>();
         });
 
         services.AddServerProfileEnvProvider();
@@ -106,13 +107,14 @@ public class Web
 
             builder.WebHost.UseKestrel((context, serverOptions) =>
             {
-                serverOptions.Listen(IPAddress.Any, serverConfig.Port, listenOptions =>
+                void OptionAction(ListenOptions options)
                 {
                     if (serverConfig.EnableHttps)
                     {
-                        listenOptions.UseHttps();
+                        options.UseHttps();
                     }
-                });
+                }
+                serverOptions.ListenAnyIP(serverConfig.Port, OptionAction);
             });
         }
         builder.Services.Configure<AppSettings>(option =>

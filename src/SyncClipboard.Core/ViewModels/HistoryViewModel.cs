@@ -260,6 +260,31 @@ public partial class HistoryViewModel : ObservableObject
         }
     }
 
+    public bool ShowDetail
+    {
+        get => runtimeConfig.GetConfig<HistoryWindowConfig>().ShowDetail;
+        set
+        {
+            runtimeConfig.SetConfig(runtimeConfig.GetConfig<HistoryWindowConfig>() with { ShowDetail = value });
+            OnPropertyChanged(nameof(ShowDetail));
+        }
+    }
+
+    public int FontScalePercent
+    {
+        get => runtimeConfig.GetConfig<HistoryWindowConfig>().FontScalePercent;
+        set
+        {
+            var clamped = Math.Clamp(value, 25, 400);
+            if (clamped == FontScalePercent) return;
+            runtimeConfig.SetConfig(runtimeConfig.GetConfig<HistoryWindowConfig>() with { FontScalePercent = clamped });
+            OnPropertyChanged(nameof(FontScalePercent));
+            OnPropertyChanged(nameof(ListItemFontSize));
+        }
+    }
+
+    public double ListItemFontSize => FontScalePercent / 100.0 * 12.0;
+
     [RelayCommand]
     public Task DeleteItem(HistoryRecordVM record)
     {
@@ -269,15 +294,17 @@ public partial class HistoryViewModel : ObservableObject
     [RelayCommand]
     public Task ChangeStarStatus(HistoryRecordVM record)
     {
-        record.Stared = !record.Stared;
-        return historyManager.UpdateHistoryProperty(record.ToHistoryRecord());
+        var entity = record.ToHistoryRecord();
+        entity.Stared = !record.Stared;
+        return historyManager.UpdateHistoryProperty(entity);
     }
 
     [RelayCommand]
     public Task ChangePinStatus(HistoryRecordVM record)
     {
-        record.Pinned = !record.Pinned;
-        return historyManager.UpdateHistoryProperty(record.ToHistoryRecord());
+        var entity = record.ToHistoryRecord();
+        entity.Pinned = !record.Pinned;
+        return historyManager.UpdateHistoryProperty(entity);
     }
 
     [RelayCommand]
@@ -634,7 +661,7 @@ public partial class HistoryViewModel : ObservableObject
 
     private async void RecordEntityUpdated(HistoryRecord record)
     {
-        var newRecordVM = new HistoryRecordVM(record);
+        var newRecordVM = new HistoryRecordVM(record) { SortByLastAccessed = SortByLastAccessed };
         await _threadDispatcher.RunOnMainThreadAsync(() =>
         {
             InitVMTransferStatus(newRecordVM);
@@ -865,11 +892,12 @@ public partial class HistoryViewModel : ObservableObject
             return;
         }
 
+        var sortByLastAccessed = SortByLastAccessed;
         var vms = await Task.Run(() =>
         {
             return records.Select(x =>
             {
-                var vm = new HistoryRecordVM(x);
+                var vm = new HistoryRecordVM(x) { SortByLastAccessed = sortByLastAccessed };
                 InitVMTransferStatus(vm);
                 return vm;
             }).ToArray();
@@ -1092,7 +1120,7 @@ public partial class HistoryViewModel : ObservableObject
         {
             var record = await HistoryManager.ToRemoteHistoryRecord(task.Profile, token);
 
-            vm = new HistoryRecordVM(record);
+            vm = new HistoryRecordVM(record) { SortByLastAccessed = SortByLastAccessed };
             vm.UpdateFromTask(task);
             if (IsMatchUiFilter(vm))
             {

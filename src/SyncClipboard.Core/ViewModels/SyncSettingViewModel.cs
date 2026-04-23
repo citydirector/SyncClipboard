@@ -163,10 +163,6 @@ public partial class SyncSettingViewModel : ObservableObject
     partial void OnNotifyFileSyncProgressChanged(bool value) => ClientConfig = ClientConfig with { NotifyFileSyncProgress = value };
 
     [ObservableProperty]
-    private bool trustInsecureCertificate;
-    partial void OnTrustInsecureCertificateChanged(bool value) => ClientConfig = ClientConfig with { TrustInsecureCertificate = value };
-
-    [ObservableProperty]
     private bool uploadEnable;
     partial void OnUploadEnableChanged(bool value) => ClientConfig = ClientConfig with { PushSwitchOn = value };
 
@@ -200,7 +196,6 @@ public partial class SyncSettingViewModel : ObservableObject
         DoNotUploadWhenCut = value.DoNotUploadWhenCut;
         IgnoreExcludeForSyncSuggestion = value.IgnoreExcludeForSyncSuggestion;
         NotifyFileSyncProgress = value.NotifyFileSyncProgress;
-        TrustInsecureCertificate = value.TrustInsecureCertificate;
         UploadEnable = value.PushSwitchOn;
         DownloadEnable = value.PullSwitchOn;
         TextEnable = value.EnableUploadText;
@@ -221,6 +216,48 @@ public partial class SyncSettingViewModel : ObservableObject
         _mainVM.NavigateToNextLevel(PageDefinition.SyncContentControl);
     }
 
+    [RelayCommand]
+    private void OpenClipboardAcquisitionRulesPage()
+    {
+        _mainVM.NavigateToNextLevel(PageDefinition.ClipboardAcquisitionRules);
+    }
+
+    #endregion
+
+    #region clipboard source (Linux only)
+
+    public bool IsLinux { get; } = OperatingSystem.IsLinux();
+
+    [ObservableProperty]
+    private bool wlClipboardEnabled;
+    partial void OnWlClipboardEnabledChanged(bool value) => UpdateProhibitSource("wl-clipboard", value);
+
+    [ObservableProperty]
+    private bool xClipEnabled;
+    partial void OnXClipEnabledChanged(bool value) => UpdateProhibitSource("xclip", value);
+
+    [ObservableProperty]
+    private bool avaloniaEnabled;
+    partial void OnAvaloniaEnabledChanged(bool value) => UpdateProhibitSource("Avalonia", value);
+
+    private void UpdateProhibitSource(string sourceName, bool enabled)
+    {
+        var config = _configManager.GetConfig<ClipboardFactoryConfig>();
+        var list = new List<string>(config.ProhibitSources);
+        if (enabled)
+            list.Remove(sourceName);
+        else if (!list.Contains(sourceName))
+            list.Add(sourceName);
+        _configManager.SetConfig(new ClipboardFactoryConfig { ProhibitSources = list });
+    }
+
+    private void LoadClipboardFactoryConfig(ClipboardFactoryConfig config)
+    {
+        WlClipboardEnabled = !config.ProhibitSources.Contains("wl-clipboard");
+        XClipEnabled = !config.ProhibitSources.Contains("xclip");
+        AvaloniaEnabled = !config.ProhibitSources.Contains("Avalonia");
+    }
+
     #endregion
 
     private readonly ConfigManager _configManager;
@@ -236,6 +273,7 @@ public partial class SyncSettingViewModel : ObservableObject
         _dialog = dialog;
 
         _configManager.ListenConfig<SyncConfig>(config => ClientConfig = config);
+        _configManager.ListenConfig<ClipboardFactoryConfig>(LoadClipboardFactoryConfig);
         _accountManager.SavedAccountsChanged += OnSavedAccountsChanged;
 
         clientConfig = _configManager.GetConfig<SyncConfig>();
@@ -249,12 +287,13 @@ public partial class SyncSettingViewModel : ObservableObject
         doNotUploadWhenCut = clientConfig.DoNotUploadWhenCut;
         ignoreExcludeForSyncSuggestion = clientConfig.IgnoreExcludeForSyncSuggestion;
         notifyFileSyncProgress = clientConfig.NotifyFileSyncProgress;
-        trustInsecureCertificate = clientConfig.TrustInsecureCertificate;
         uploadEnable = clientConfig.PushSwitchOn;
         downloadEnable = clientConfig.PullSwitchOn;
         textEnable = clientConfig.EnableUploadText;
         singleFileEnable = clientConfig.EnableUploadSingleFile;
         multiFileEnable = clientConfig.EnableUploadMultiFile;
+
+        LoadClipboardFactoryConfig(_configManager.GetConfig<ClipboardFactoryConfig>());
 
         LoadSavedAccounts();
     }

@@ -79,6 +79,24 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Acquire Image 的本地化字符串。
+        /// </summary>
+        public static string AcquireImage {
+            get {
+                return ResourceManager.GetString("AcquireImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Acquire Text 的本地化字符串。
+        /// </summary>
+        public static string AcquireText {
+            get {
+                return ResourceManager.GetString("AcquireText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Add Account 的本地化字符串。
         /// </summary>
         public static string AddAccount {
@@ -223,6 +241,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 chars 的本地化字符串。
+        /// </summary>
+        public static string Characters {
+            get {
+                return ResourceManager.GetString("Characters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Please check and correct input errors before trying again 的本地化字符串。
         /// </summary>
         public static string CheckAndCorrectErrors {
@@ -300,6 +327,15 @@ namespace SyncClipboard.Core.I18n {
         public static string ClientGeneral {
             get {
                 return ResourceManager.GetString("ClientGeneral", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Local Clipboard Acquisition Rules 的本地化字符串。
+        /// </summary>
+        public static string ClipboardAcquisitionRules {
+            get {
+                return ResourceManager.GetString("ClipboardAcquisitionRules", resourceCulture);
             }
         }
         
@@ -489,6 +525,24 @@ namespace SyncClipboard.Core.I18n {
         public static string CustomConfigurationFilePath {
             get {
                 return ResourceManager.GetString("CustomConfigurationFilePath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Custom Name 的本地化字符串。
+        /// </summary>
+        public static string CustomName {
+            get {
+                return ResourceManager.GetString("CustomName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Optional. If set, this name will be displayed instead of the auto-generated identifier. 的本地化字符串。
+        /// </summary>
+        public static string CustomNameDescription {
+            get {
+                return ResourceManager.GetString("CustomNameDescription", resourceCulture);
             }
         }
         
@@ -963,6 +1017,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Font Scale 的本地化字符串。
+        /// </summary>
+        public static string FontScale {
+            get {
+                return ResourceManager.GetString("FontScale", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Found new version:  的本地化字符串。
         /// </summary>
         public static string FoundNewVersion {
@@ -1287,6 +1350,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Local Clipboard Source 的本地化字符串。
+        /// </summary>
+        public static string LocalClipboardSource {
+            get {
+                return ResourceManager.GetString("LocalClipboardSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Local version 的本地化字符串。
         /// </summary>
         public static string LocalVersion {
@@ -1548,15 +1620,6 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Password for logging into the WebDAV server 的本地化字符串。
-        /// </summary>
-        public static string PasswordDescription {
-            get {
-                return ResourceManager.GetString("PasswordDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 1 的本地化字符串。
         /// </summary>
         public static string PasswordTabRepeat {
@@ -1764,6 +1827,105 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Access Key ID 的本地化字符串。
+        /// </summary>
+        public static string S3AccessKeyId {
+            get {
+                return ResourceManager.GetString("S3AccessKeyId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Bucket Name 的本地化字符串。
+        /// </summary>
+        public static string S3BucketName {
+            get {
+                return ResourceManager.GetString("S3BucketName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 S3 bucket used to store SyncClipboard metadata and files. 的本地化字符串。
+        /// </summary>
+        public static string S3BucketNameDescription {
+            get {
+                return ResourceManager.GetString("S3BucketNameDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Force Path-Style Addressing 的本地化字符串。
+        /// </summary>
+        public static string S3ForcePathStyle {
+            get {
+                return ResourceManager.GetString("S3ForcePathStyle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Enable for S3-compatible endpoints that do not support virtual-host style buckets. 的本地化字符串。
+        /// </summary>
+        public static string S3ForcePathStyleDescription {
+            get {
+                return ResourceManager.GetString("S3ForcePathStyleDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Object Prefix 的本地化字符串。
+        /// </summary>
+        public static string S3ObjectPrefix {
+            get {
+                return ResourceManager.GetString("S3ObjectPrefix", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Optional folder-like prefix inside the bucket, e.g. &quot;syncclipboard&quot;. 的本地化字符串。
+        /// </summary>
+        public static string S3ObjectPrefixDescription {
+            get {
+                return ResourceManager.GetString("S3ObjectPrefixDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Region 的本地化字符串。
+        /// </summary>
+        public static string S3Region {
+            get {
+                return ResourceManager.GetString("S3Region", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 AWS region name used for signing requests, such as &quot;us-east-1&quot;. 的本地化字符串。
+        /// </summary>
+        public static string S3RegionDescription {
+            get {
+                return ResourceManager.GetString("S3RegionDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Secret Access Key 的本地化字符串。
+        /// </summary>
+        public static string S3SecretAccessKey {
+            get {
+                return ResourceManager.GetString("S3SecretAccessKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Optional. Set to a custom endpoint such as &quot;https://s3.us-east-1.amazonaws.com&quot; or an S3-compatible OSS endpoint. 的本地化字符串。
+        /// </summary>
+        public static string S3ServerAddressDescription {
+            get {
+                return ResourceManager.GetString("S3ServerAddressDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Failed to save configuration: {0} 的本地化字符串。
         /// </summary>
         public static string SaveConfigFailed {
@@ -1863,15 +2025,6 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Full URL address of the WebDAV server 的本地化字符串。
-        /// </summary>
-        public static string ServerAddressDescription {
-            get {
-                return ResourceManager.GetString("ServerAddressDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 If you want to sync the clipboard on this machine, please add an account and enable syncing on the &quot;Clipboard Syncing&quot; page 的本地化字符串。
         /// </summary>
         public static string ServerDescription {
@@ -1895,6 +2048,15 @@ namespace SyncClipboard.Core.I18n {
         public static string Settings {
             get {
                 return ResourceManager.GetString("Settings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Show Details 的本地化字符串。
+        /// </summary>
+        public static string ShowDetail {
+            get {
+                return ResourceManager.GetString("ShowDetail", resourceCulture);
             }
         }
         
@@ -2025,6 +2187,15 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
+        ///   查找类似 Set the format to &quot;http(s)://host:port&quot;. For built-in server, set the host to &quot;127.0.0.1&quot; 的本地化字符串。
+        /// </summary>
+        public static string SyncClipboardServerAddressDescription {
+            get {
+                return ResourceManager.GetString("SyncClipboardServerAddressDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Sync Content Control 的本地化字符串。
         /// </summary>
         public static string SyncContentControl {
@@ -2129,6 +2300,15 @@ namespace SyncClipboard.Core.I18n {
         public static string TestConnectionError {
             get {
                 return ResourceManager.GetString("TestConnectionError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 When text and image coexist 的本地化字符串。
+        /// </summary>
+        public static string TextImageCoexistRule {
+            get {
+                return ResourceManager.GetString("TextImageCoexistRule", resourceCulture);
             }
         }
         
@@ -2340,15 +2520,6 @@ namespace SyncClipboard.Core.I18n {
         }
         
         /// <summary>
-        ///   查找类似 Username for logging into the WebDAV server 的本地化字符串。
-        /// </summary>
-        public static string UserNameDescription {
-            get {
-                return ResourceManager.GetString("UserNameDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 Username or password can&apos;t be blank 的本地化字符串。
         /// </summary>
         public static string UsernameOrPasswordBlank {
@@ -2372,6 +2543,15 @@ namespace SyncClipboard.Core.I18n {
         public static string UseSelfHostServer {
             get {
                 return ResourceManager.GetString("UseSelfHostServer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Set the format to &quot;http(s)://host:port/webdav_api_path&quot; and specify the path to a dedicated sync folder 的本地化字符串。
+        /// </summary>
+        public static string WebDAVServerAddressDescription {
+            get {
+                return ResourceManager.GetString("WebDAVServerAddressDescription", resourceCulture);
             }
         }
         

@@ -8,6 +8,8 @@
 
 - [SyncClipboard](#syncclipboard)
   - [功能](#功能)
+  - [不兼容变更记录](#不兼容变更记录)
+    - [v3.1.1](#v311)
   - [服务器](#服务器)
     - [独立服务器](#独立服务器)
       - [服务器配置](#服务器配置)
@@ -15,6 +17,7 @@
       - [Arch Linux](#arch-linux)
     - [客户端内置服务器](#客户端内置服务器)
     - [WebDAV服务器](#webdav服务器)
+    - [S3服务器](#s3服务器)
   - [客户端](#客户端)
     - [Windows](#windows)
       - [免安装板](#免安装板)
@@ -32,17 +35,21 @@
     - [IOS](#ios)
       - [使用快捷指令](#使用快捷指令)
     - [Android](#android)
-      - [使用HTTP Request Shortcuts](#使用http-request-shortcuts)
       - [使用SyncClipboard Mobile](#使用syncclipboard-mobile)
       - [使用Sync Clipboard Flutter](#使用sync-clipboard-flutter)
+      - [使用HTTP Request Shortcuts](#使用http-request-shortcuts)
       - [使用AutoJs6脚本](#使用autojs6脚本)
       - [使用SmsForwarder](#使用smsforwarder)
       - [使用Tasker](#使用tasker)
+      - [使用Fcitx5-SyncClipboard](#使用fcitx5-syncclipboard)
+    - [鸿蒙OS (HarmonyOS Next)](#鸿蒙os-harmonyos-next)
+      - [使用ClipLink](#使用cliplink)
     - [客户端配置说明](#客户端配置说明)
   - [API](#api)
     - [获取剪贴板](#获取剪贴板)
     - [上传剪贴板](#上传剪贴板)
     - [SyncClipboard.json](#syncclipboardjson)
+    - [S3 同步协议规范](#s3-同步协议规范)
   - [项目依赖](#项目依赖)
 
 </details>
@@ -50,17 +57,21 @@
 ## 功能
 
 - 跨平台（Windows/macOS/Linux）剪贴板实时同步、剪贴板历史记录管理、历史记录同步
-- 支持客户端内置服务器、docker部署服务器，也可以使用支持WebDAV协议的网盘作为服务器
+- 支持客户端内置服务器、docker部署服务器，也可以使用支持WebDAV协议或S3兼容API的对象存储作为服务器
 - 基于第三方工具的移动端剪贴板同步
 - 优化图片类型的剪贴板，功能有：
   - 从任意位置复制图片时，可以直接向文件系统粘贴图片文件，反之亦然
   - 从浏览器复制图片后，后台下载原图到本地，解决无法从浏览器直接复制动态图的问题
   - 从文件系统复制较新格式类型的图片文件时（webp/heic等），在剪贴板内储存gif或jpg格式，用于直接向支持图片的文本框粘贴图片
 
-
 > [!WARNING]  
 > 剪贴板历史记录功能处于早期阶段，请做好丢失全部信息的准备，重要信息不要仅依赖本工具保存
 >
+
+## 不兼容变更记录
+### [v3.1.1](https://github.com/Jeric-X/SyncClipboard/issues/286)
+v3.1.1及以上的客户端、服务器与之前的版本不兼容，同步网络中的客户端、服务器、第三方客户端需同步升级
+
 
 ## 服务器
 ### 独立服务器
@@ -162,6 +173,17 @@ sudo systemctl enable --now syncclipboard.service
 - [x] [InfiniCLOUD](https://infini-cloud.net/en/)
 - [x] [aliyundrive-webdav](https://github.com/messense/aliyundrive-webdav)
 
+### S3服务器
+桌面客户端支持使用 AWS 官方 S3 SDK 直连 S3，也支持使用兼容 S3 API 的对象存储服务。  
+添加账号时选择`S3`，配置以下字段：
+
+- `Server Address`：可选，AWS 可留空；使用兼容 S3 的服务时填写对应 endpoint
+- `Region`：签名区域，例如`us-east-1`
+- `Bucket Name`：用于存储`SyncClipboard.json`与`file/`对象的 bucket
+- `Object Prefix`：可选，建议设置独立前缀（如`syncclipboard`）隔离数据
+- `Force Path-Style Addressing`：兼容服务建议开启
+- `Access Key ID` / `Secret Access Key`：访问密钥
+
 ## 客户端
 
 桌面客户端（Windows/Linux/macOS）运行在后台时将自动同步剪贴板
@@ -236,6 +258,19 @@ paru -Sy syncclipboard-desktop
 - 自动上传短信验证码，参考这个帖子中的视频教程 https://github.com/Jeric-X/SyncClipboard/discussions/60
 
 ### Android
+#### 使用[SyncClipboard Mobile](https://github.com/Jeric-X/syncclipboard-mobile)
+
+- 从通知中心、桌面快捷方式、分享菜单中快捷手动触发
+- 一定程度的后台同步能力
+- 剪贴板历史记录及同步
+- 自动上传短信验证码
+
+#### 使用[Sync Clipboard Flutter](https://github.com/bling-yshs/sync-clipboard-flutter)
+
+这是一个使用 Flutter 构建的 Material 3 风格的、适配了SyncClipboard API的安卓客户端应用，支持从控制中心快捷上传或下载。
+
+功能详情、使用步骤、系统要求等信息请查看该项目的 [README](https://github.com/bling-yshs/sync-clipboard-flutter)
+
 #### 使用[HTTP Request Shortcuts](https://github.com/Waboodoo/HTTP-Shortcuts)
 导入这个[配置文件](https://github.com/Jeric-X/SyncClipboard/raw/refs/heads/dev/script/shortcuts.zip)，修改`变量`中的`UserName`，`UserToken`，`url`， `url`不要以斜线分隔符`/`结尾。`HTTP Request Shortcuts`支持从下拉菜单、桌面组件、桌面图标、分享菜单中使用
 
@@ -264,16 +299,6 @@ paru -Sy syncclipboard-desktop
 
 </details>
 
-#### 使用[SyncClipboard Mobile](https://github.com/Jeric-X/syncclipboard-mobile)
-
-使用React Native构建的移动客户端，支持从通知中心磁铁、桌面快捷方式、分享菜单中使用
-
-#### 使用[Sync Clipboard Flutter](https://github.com/bling-yshs/sync-clipboard-flutter)
-
-这是一个使用 Flutter 构建的 Material 3 风格的、适配了SyncClipboard API的安卓客户端应用，支持从控制中心快捷上传或下载。
-
-功能详情、使用步骤、系统要求等信息请查看该项目的 [README](https://github.com/bling-yshs/sync-clipboard-flutter)
-
 #### 使用[AutoJs6脚本](https://github.com/imgs/SyncAutojs6)
 
 此项目通过[AutoJs6](https://github.com/SuperMonster003/AutoJs6)基于悬浮窗的后台剪贴板获取方式，实现了Android 10+系统上的后台剪贴板同步能力
@@ -287,6 +312,18 @@ paru -Sy syncclipboard-desktop
 - https://github.com/forrestgao/taskerforSyncClipboard ，作者：[forrestgao](https://github.com/forrestgao)
 
 Tasker是一款安卓系统上非常强大的自动化工具软件，你可以根据SyncClipboard的API创建适合自己的配置文件，如果你认为你的配置文件非常通用并希望分享出来，欢迎联系我置于此处
+
+#### 使用[Fcitx5-SyncClipboard](https://github.com/qh7574/Fcitx5-SyncClipboard)
+
+这是一个为 Fcitx5-android 开发的插件，借助输入法特权实现与 SyncClipboard 服务的无感剪贴板同步，无需手动获取；同时支持同步大文本、图片、文件等，文件无感下载并智能复制 uri 到剪贴板。
+
+具体使用方法、操作事项等请参见该项目 [README.md](https://github.com/qh7574/Fcitx5-SyncClipboard)
+
+
+### 鸿蒙OS (HarmonyOS Next)
+#### 使用[ClipLink](https://github.com/xiebaiyuan/ClipLink)
+
+适配 HarmonyOS Next 的客户端。从 [Releases](https://github.com/xiebaiyuan/ClipLink/releases) 页面下载 `.hap` 文件，通过 [auto-installer](https://github.com/likuai2010/auto-installer) 或 `hdc install` 命令进行 sideload 安装（受鸿蒙系统限制，暂不支持直接安装）。
 
 
 ### 客户端配置说明
@@ -337,6 +374,10 @@ PUT /SyncClipboard.json
   - 当`hash`值存在时，接收方应验证`hash`信息与剪贴板内容的一致性，在不一致时执行错误处理流程
   - 当`hash`为空时，或处于无法计算`hash`的环境，可以使用`type`/`text`的组合简单判断剪贴板内容的相等性
 - `size`标识复制文件的总字节大小，或Text类型剪贴板完整字符串的长度，仅用于展示
+
+### S3 同步协议规范
+
+使用 S3 兼容对象存储作为同步后端时的协议与数据格式规范请参阅 [S3 Adapter Design](docs/S3-Adapter-Design.md)。
 
 ## 项目依赖
 [NativeNotification](https://github.com/Jeric-X/NativeNotification)  

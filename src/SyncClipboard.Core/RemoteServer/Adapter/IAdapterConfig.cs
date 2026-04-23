@@ -5,7 +5,8 @@ namespace SyncClipboard.Core.RemoteServer.Adapter;
 
 public interface IAdapterConfig
 {
-    string DisplayIdentify { get; }
+    string NameSuggestion { get; }
+    string CustomName { get; set; }
 }
 
 public interface IAdapterConfig<T> : IAdapterConfig
@@ -21,6 +22,20 @@ public interface IAdapterConfig<T> : IAdapterConfig
                 return accountAttribute.GetName();
             }
             return type.Name;
+        }
+    }
+
+    static int Priority
+    {
+        get
+        {
+            var type = typeof(T);
+            var accountAttribute = type.GetCustomAttribute<AccountConfigTypeAttribute>();
+            if (accountAttribute != null)
+            {
+                return accountAttribute.Priority;
+            }
+            return int.MaxValue;
         }
     }
 }

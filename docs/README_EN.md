@@ -7,6 +7,8 @@
 
 - [SyncClipboard](#syncclipboard)
   - [Features](#features)
+  - [Breaking Changes](#breaking-changes)
+    - [v3.1.1](#v311)
   - [Server](#server)
     - [Standalone Server](#standalone-server)
       - [Server Configuration](#server-configuration)
@@ -14,6 +16,7 @@
       - [Arch Linux](#arch-linux)
     - [Desktop Client Built-in Server](#desktop-client-built-in-server)
     - [WebDAV Server](#webdav-server)
+    - [S3 Server](#s3-server)
   - [Client](#client)
     - [Windows](#windows)
       - [Portable Version](#portable-version)
@@ -33,6 +36,8 @@
     - [Android](#android)
       - [Use HTTP Request Shortcuts](#use-http-request-shortcuts)
       - [Use Autox.js](#use-autoxjs)
+    - [HarmonyOS Next](#harmonyos-next)
+      - [Use ClipLink](#use-cliplink)
     - [Notes for Clients](#notes-for-clients)
   - [API](#api)
     - [Get Clipboard](#get-clipboard)
@@ -45,7 +50,7 @@
 ## Features
 
 - Cross-platform (Windows/macOS/Linux) real-time clipboard syncing, clipboard history management, and history syncing.
-- Supports desktop client built-in server, Docker-deployed server, or WebDAV-compatible cloud storage as server.
+- Supports desktop client built-in server, Docker-deployed server, or storage services compatible with WebDAV/S3 APIs.
 - Mobile clipboard syncing based on third-party tools.
 - Optimize image type clipboard:
   - Paste image to a textbox directly after copying a image file from file system, and vice versa.
@@ -56,6 +61,10 @@
 > [!WARNING]  
 > The clipboard history feature is in its early stages. Please be prepared for the possibility of losing all information. Do not rely solely on this tool to save important information.
 >
+
+## Breaking Changes
+### [v3.1.1](https://github.com/Jeric-X/SyncClipboard/issues/286)
+Clients and servers v3.1.1 and above are incompatible with previous versions. All clients, servers, and third-party clients in the sync network need to be upgraded together.
 
 ## Server
 ### Standalone Server
@@ -156,6 +165,17 @@ Tested server：
 - [x] [AList](https://alist.nn.ci/)
 - [x] [InfiniCLOUD](https://infini-cloud.net/en/)
 - [x] [aliyundrive-webdav](https://github.com/messense/aliyundrive-webdav)
+
+### S3 Server
+The desktop client supports AWS S3 via the official AWS SDK, and also supports OSS providers that expose an S3-compatible API.  
+When adding an account, choose `S3` and configure:
+
+- `Server Address`: Optional. Leave empty for AWS; set your endpoint for S3-compatible providers.
+- `Region`: Signing region, for example `us-east-1`.
+- `Bucket Name`: Bucket used to store `SyncClipboard.json` and `file/` objects.
+- `Object Prefix`: Optional. Recommended to isolate data with a dedicated prefix (for example `syncclipboard`).
+- `Force Path-Style Addressing`: Recommended for many S3-compatible providers.
+- `Access Key ID` / `Secret Access Key`: Access credentials.
 
 ## Client
 
@@ -263,6 +283,11 @@ If satisfy any of the following conditions, upload is automatic.
   - https://github.com/GamerGirlandCo/xposed-clipboard-whitelist
   - https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist
   - https://github.com/QueallyTech/DisableLogRequest
+
+### HarmonyOS Next
+#### Use [ClipLink](https://github.com/xiebaiyuan/ClipLink)
+
+A HarmonyOS Next client. Download the `.hap` file from [Releases](https://github.com/xiebaiyuan/ClipLink/releases) and install via [auto-installer](https://github.com/likuai2010/auto-installer) or `hdc install` (sideloading required due to HarmonyOS restrictions).
 
 ### Notes for Clients
 

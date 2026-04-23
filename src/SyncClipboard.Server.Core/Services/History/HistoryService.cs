@@ -60,6 +60,11 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
             return (false, HistoryRecordDto.FromEntity(existing));
         }
 
+        if (dto.IsDelete is false && existing.IsDeleted && !string.IsNullOrEmpty(existing.TransferDataFile))
+        {
+            return (null, null);
+        }
+
         // 部分字段更新
         if (dto.Starred.HasValue) existing.Stared = dto.Starred.Value;
         if (dto.Pinned.HasValue) existing.Pinned = dto.Pinned.Value;
@@ -296,18 +301,30 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
 
         if (existing is not null)
         {
+            if (existing.IsDeleted)
+            {
+                if (transferFileStream is not null)
+                {
+                    await SaveTransferDataAsync(existing, transferFileStream, token);
+                }
+                else
+                {
+                    var existProfile = existing.ToProfile(_persistentDir);
+                    if (await existProfile.IsLocalDataValid(true, token) is false)
+                    {
+                        throw new ArgumentException("Needs tranfer data.");
+                    }
+                }
+            }
+
             var shouldUpdate = HistoryHelper.ShouldUpdate(
                 oldVersion: existing.Version,
                 newVersion: incoming.Version,
                 oldLastModified: new DateTimeOffset(existing.LastModified),
                 newLastModified: incoming.LastModified);
-            if (shouldUpdate)
+            if (shouldUpdate || existing.IsDeleted)
             {
-                if (existing.IsDeleted && transferFileStream != null)
-                {
-                    await SaveTransferDataAsync(existing, transferFileStream, token);
-                }
-
+                incoming.Version = Math.Max(incoming.Version, existing.Version + 1);
                 UpdateEntityFields(incoming.ToEntity(userId), existing);
                 await _dbContext.SaveChangesAsync(token);
                 await NotifyProfileChangeAsync(existing);
@@ -318,13 +335,20 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         }
 
         var entity = incoming.ToEntity(userId);
+        Profile? profile = null;
 
         if (transferFileStream != null)
         {
-            var profile = await SaveTransferDataAsync(entity, transferFileStream, token);
+            profile = await SaveTransferDataAsync(entity, transferFileStream, token);
             var newEntity = await profile.ToHistoryEntity(_persistentDir, userId, token);
             UpdateEntityFields(entity, newEntity);
             entity = newEntity;
+        }
+
+        profile ??= entity.ToProfile(_persistentDir);
+        if (await profile.IsLocalDataValid(true, token) is false)
+        {
+            throw new ArgumentException("Needs tranfer data.");
         }
 
         await _dbContext.HistoryRecords.AddAsync(entity, token);
@@ -350,6 +374,13 @@ public class HistoryService : IHistoryEntityRepository<HistoryRecordEntity, Date
         var profile = entity.ToProfile(_persistentDir);
         var filePath = await profile.NeedsTransferData(_persistentDir, token)
             ?? throw new InvalidOperationException("Profile does not support transfer data.");
+
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await transferFileStream.CopyToAsync(fs, token);
